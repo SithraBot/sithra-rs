@@ -1,4 +1,4 @@
-use std::{ffi::OsStr, io, process::Stdio};
+use std::{env, ffi::OsStr, fmt::Display, fs, io, process::Stdio};
 
 use ahash::HashMap;
 use futures_util::{SinkExt, StreamExt};
@@ -35,7 +35,10 @@ impl Loader {
         }
     }
 
+    /// # Panics
+    /// If the current directory cannot be retrieved.
     pub fn load(&mut self) {
+        let path = env::current_dir().expect("Failed to get current directory").join("data");
         for (name, config) in self.config.iter() {
             log::info!("Loading {name}");
             let broadcast_tx = self.broadcast_tx.clone();
@@ -57,7 +60,16 @@ impl Loader {
                     continue;
                 }
             };
-            let init_package = init_datapack(config_data);
+            let data_path = path.join(name);
+            if let Err(err) = fs::create_dir_all(&data_path) {
+                log::error!("Failed to create data directory for {name}: {err}");
+                continue;
+            }
+            let Some(data_path) = data_path.to_str() else {
+                log::error!("Failed to convert data path to string for {name}");
+                continue;
+            };
+            let init_package = init_datapack(config_data, data_path);
             let raw = init_package.serialize_to_raw();
             let raw = match raw {
                 Ok(raw) => raw,
@@ -155,8 +167,8 @@ fn split_peer(
     )
 }
 
-fn init_datapack(conf: rmpv::Value) -> DataPack {
-    let init = Initialize::new(conf);
+fn init_datapack<D: Display>(conf: rmpv::Value, data_path: D) -> DataPack {
+    let init = Initialize::new(conf, data_path);
     DataPack::builder().payload(init).path("/initialize").build()
 }
 

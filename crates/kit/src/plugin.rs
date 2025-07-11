@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use futures_util::StreamExt;
 use serde::Deserialize;
 use sithra_server::{
@@ -13,29 +11,28 @@ use tokio::task::JoinSet;
 
 use crate::logger::init_log;
 
-pub struct Plugin<Config = rmpv::Value> {
+pub struct Plugin {
     peer:       Peer,
     pub server: Server,
     router:     Router,
-    _marker:    PhantomData<Config>,
 }
 
-impl<Config> Plugin<Config>
-where
-    Config: for<'de> Deserialize<'de>,
-{
+impl Plugin {
     /// # Errors
     /// - [`PluginInitError::DeserializationError`] if the config could not be
     ///   deserialized.
     /// - [`PluginInitError::ConnectionClosed`] if the connection was closed
     ///   before the config was received.
-    pub async fn new() -> Result<(Self, Config), PluginInitError> {
+    pub async fn new<Config>() -> Result<(Self, Initialize<Config>), PluginInitError>
+    where
+        Config: for<'de> Deserialize<'de>,
+    {
         let peer = Peer::new();
         let server = Server::new();
         let router = Router::new();
         let mut framed = crate::transport::util::framed(peer);
 
-        let config = loop {
+        let init = loop {
             let Some(msg) = <FramedPeer as StreamExt>::next(&mut framed).await else {
                 break Err(PluginInitError::ConnectionClosed);
             };
@@ -56,9 +53,8 @@ where
                 peer,
                 server,
                 router,
-                _marker: PhantomData,
             },
-            config.config,
+            init,
         ))
     }
 
@@ -71,13 +67,11 @@ where
             peer,
             server,
             router,
-            _marker,
         } = self;
         Self {
             peer,
             server,
             router: f(router.with_state(())),
-            _marker: PhantomData,
         }
     }
 
@@ -90,13 +84,11 @@ where
             peer,
             server,
             router,
-            _marker,
         } = self;
         Self {
             peer,
             server,
             router: f(router).await,
-            _marker: PhantomData,
         }
     }
 
@@ -106,7 +98,6 @@ where
             peer,
             server,
             router,
-            _marker,
         } = self;
         let (write, read) = peer.split();
 

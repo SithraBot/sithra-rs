@@ -17,7 +17,7 @@ use sithra_kit::{
     plugin::Plugin,
     server::server::ClientSink,
     transport::datapack::DataPack,
-    types::{channel::SetMute, message::SendMessage},
+    types::{channel::SetMute, initialize::Initialize, message::SendMessage},
 };
 use tokio::sync::{Mutex, mpsc, watch};
 use tokio_tungstenite::tungstenite::Message as WsMessage;
@@ -43,7 +43,8 @@ const fn default_health_check_interval() -> Duration {
 #[tokio::main]
 async fn main() {
     // Init plugin
-    let (plugin, config) = Plugin::<Config>::new().await.expect("Init adapter onebot failed");
+    let (plugin, Initialize { config, .. }) =
+        Plugin::new().await.expect("Init adapter onebot failed");
 
     // config
     let Config {

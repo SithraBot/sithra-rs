@@ -3,7 +3,7 @@ mod skin;
 
 #[tokio::main]
 async fn main() {
-    let (plugin, ()) = Plugin::new().await.unwrap();
+    let (plugin, _) = Plugin::new::<()>().await.unwrap();
     let plugin = plugin.map(|r| {
         router! { r =>
             Message [

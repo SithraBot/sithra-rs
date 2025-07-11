@@ -13,6 +13,7 @@ use sithra_kit::{
     transport::channel::Channel,
     types::{
         channel::SetMute,
+        initialize::Initialize,
         message::{Message, SendMessage, common::CommonSegment as H},
         msg,
     },
@@ -39,7 +40,7 @@ impl Clientful for AppState {
 
 #[tokio::main]
 async fn main() {
-    let (plugin, config) = Plugin::<Config>::new().await.unwrap();
+    let (plugin, Initialize { config, .. }) = Plugin::new::<Config>().await.unwrap();
 
     let client = plugin.server.client();
 
