@@ -212,6 +212,14 @@ pub mod common {
         pub fn at<T: Display>(target: T) -> Self {
             Self::At(target.to_string())
         }
+
+        #[must_use]
+        pub const fn text_opt(&self) -> Option<&String> {
+            match self {
+                Self::Text(text) => Some(text),
+                _ => None,
+            }
+        }
     }
 
     impl TryFrom<Segment> for CommonSegment {

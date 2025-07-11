@@ -99,7 +99,9 @@ async fn mute(ctx: Context<Message<H>, AppState>, mut channel: Channel) -> Optio
     tap_err!(res, "禁言");
     Some(
         msg!(H [
-            text: if is_unmute {"解禁成功喵"} else {"禁言成功喵"}
+            text: if is_unmute {"解禁成功喵 "} else {"禁言成功喵 "},
+            at: id,
+            text: if is_unmute {" 😎堂堂复活喵"} else {" 💀"},
         ])
         .into(),
     )

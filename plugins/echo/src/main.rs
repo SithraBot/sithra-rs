@@ -16,13 +16,7 @@ async fn main() {
 }
 
 async fn echo(Payload(msg): Payload<Message<CommonSegment>>) -> Option<SendMessage> {
-    let text = msg.content.iter().fold(String::new(), |f, s| {
-        if let CommonSegment::Text(text) = s {
-            f + text
-        } else {
-            f
-        }
-    });
+    let text = msg.content.first()?.text_opt()?;
     let text = text.strip_prefix("echo ")?.to_owned();
     log::info!("echo recv: {text}");
     let Message { mut content, .. } = msg;

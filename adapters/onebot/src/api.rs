@@ -14,7 +14,7 @@ pub mod response {
         #[serde(default)]
         status:  String,
         echo:    Ulid,
-        data:    Option<ApiResponseKind>,
+        pub data:    Option<ApiResponseKind>,
     }
 
     impl ApiResponse {
@@ -42,6 +42,9 @@ pub mod response {
                     };
                     DataPack::builder().correlate(echo).build_with_payload(payload)
                 }
+                ApiResponseKind::GetStatus(status) => {
+                    DataPack::builder().correlate(echo).build_with_payload(status)
+                }
             }
         }
     }
@@ -50,6 +53,12 @@ pub mod response {
     #[serde(untagged)]
     pub enum ApiResponseKind {
         SendMessage(SendMessageResponse),
+        GetStatus(Status),
+    }
+    
+    #[derive(Debug, Clone, Deserialize, Serialize)]
+    pub struct Status {
+        pub good: bool,
     }
 
     #[derive(Debug, Clone, Deserialize, Serialize)]
