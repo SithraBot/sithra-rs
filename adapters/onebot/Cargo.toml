@@ -15,6 +15,8 @@ rmpv.workspace = true
 serde_json = "1.0.140"
 log.workspace = true
 ulid.workspace = true
+hyper = { version = "1", features = ["full"] }
+fastrand = "2"
 
 [lints]
 workspace = true

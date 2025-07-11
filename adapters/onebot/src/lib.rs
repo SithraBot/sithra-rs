@@ -8,6 +8,7 @@ pub mod api;
 pub mod event;
 pub mod message;
 pub mod util;
+pub mod endpoint;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(untagged)]
