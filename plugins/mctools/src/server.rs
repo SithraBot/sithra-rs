@@ -40,7 +40,7 @@ pub fn apply_template(template: &Template) -> String {
     svg = svg.replace("{{game_version}}", &template.game_version);
     svg = svg.replace("{{protocol_version}}", &template.protocol_version);
     svg = svg.replace("{{server_type}}", &template.server_type);
-    svg = svg.replace("{{info}}", &truncate_tail(&template.info, 20));
+    svg = svg.replace("{{info}}", &truncate_tail(template.info.trim(), 20));
     if let Some(image_url) = &template.image_url {
         svg = svg.replace("{{image_url}}", image_url);
         svg = svg.replace("{{image_display}}", "block");

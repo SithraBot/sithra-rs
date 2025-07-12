@@ -12,3 +12,6 @@ typeshare:
 run:
     cargo build --all
     cargo run
+
+build_linux_x86_64:
+    cargo build --all -r --target x86_64-unknown-linux-musl
