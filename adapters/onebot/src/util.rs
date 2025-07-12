@@ -1,9 +1,11 @@
-use std::time::Duration;
+use std::{net::IpAddr, time::Duration};
 
+use base64::{Engine, prelude::BASE64_STANDARD};
 use hyper::header::HeaderValue;
 use serde::{Deserialize, Deserializer, Serialize};
 use sithra_kit::server::response::Response;
-use tokio::sync::mpsc;
+use thiserror::Error;
+use tokio::{fs, io::AsyncReadExt, sync::mpsc};
 use tokio_tungstenite::{
     connect_async,
     tungstenite::{Message as WsMessage, client::IntoClientRequest},
@@ -181,4 +183,54 @@ impl ConnectionManager {
             tokio::time::sleep(Duration::from_secs(5)).await;
         }
     }
+}
+
+#[must_use]
+pub fn is_loopback(url_str: &str) -> bool {
+    let Ok(url) = url::Url::parse(url_str) else {
+        return false;
+    };
+
+    let Some(host) = url.host_str() else {
+        return false;
+    };
+
+    if host.eq_ignore_ascii_case("localhost") {
+        return true;
+    }
+
+    if let Ok(ip) = host.parse::<IpAddr>() {
+        return ip.is_loopback();
+    }
+
+    false
+}
+
+/// # Errors
+/// - `ProcessError::IoError`: File IO error
+/// - `ProcessError::FilePathError`: File path error
+pub async fn or_in_base64(url_str: &str) -> Result<String, ProcessError> {
+    let Ok(url) = url::Url::parse(url_str) else {
+        return Ok(url_str.to_owned());
+    };
+    if url.scheme() == "file" {
+        let path = url.to_file_path().map_err(|()| ProcessError::FilePathError)?;
+        let mut buffer = Vec::new();
+        {
+            let mut file = fs::File::open(path).await?;
+            file.read_to_end(&mut buffer).await?;
+        }
+        let base64 = BASE64_STANDARD.encode(buffer);
+        Ok(format!("base64://{base64}"))
+    } else {
+        Ok(url_str.to_owned())
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum ProcessError {
+    #[error("File IO error: {0}")]
+    IoError(#[from] std::io::Error),
+    #[error("File path error")]
+    FilePathError,
 }

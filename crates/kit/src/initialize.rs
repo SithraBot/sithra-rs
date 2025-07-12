@@ -3,6 +3,7 @@ pub mod __private {
     pub use futures_util::StreamExt;
 }
 
+#[deprecated]
 #[macro_export]
 macro_rules! init {
     ($peer:expr, $config:ty) => {{

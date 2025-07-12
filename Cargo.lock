@@ -1563,6 +1563,7 @@ dependencies = [
 name = "sithra-adapter-onebot"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "fastrand",
  "futures-util",
  "hyper",
@@ -1573,10 +1574,12 @@ dependencies = [
  "serde_json",
  "serde_with",
  "sithra-kit",
+ "thiserror",
  "tokio",
  "tokio-tungstenite",
  "triomphe",
  "ulid",
+ "url",
 ]
 
 [[package]]

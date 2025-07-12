@@ -11,6 +11,8 @@ use crate::message::internal::InternalOneBotUnknownSegment;
 pub mod internal {
     use serde::{Deserialize, Serialize, de::Error as _};
 
+    use crate::util::or_in_base64;
+
     #[derive(Debug, Clone, Deserialize, Serialize)]
     #[serde(rename_all = "snake_case", tag = "type", content = "data")]
     pub enum InternalOneBotTypedSegment {
@@ -46,10 +48,37 @@ pub mod internal {
         },
     }
 
+    impl InternalOneBotTypedSegment {
+        pub async fn or_in_base64(self) -> Self {
+            match self {
+                Self::Image { file } => Self::Image {
+                    file: or_in_base64(&file).await.unwrap_or(file),
+                },
+                Self::Record { file } => Self::Record {
+                    file: or_in_base64(&file).await.unwrap_or(file),
+                },
+                Self::Video { file } => Self::Video {
+                    file: or_in_base64(&file).await.unwrap_or(file),
+                },
+                _ => self,
+            }
+        }
+    }
+
     #[derive(Debug, Clone)]
     pub enum InternalOneBotSegment {
         Typed(InternalOneBotTypedSegment),
         Unknown(InternalOneBotUnknownSegment),
+    }
+
+    impl InternalOneBotSegment {
+        pub async fn or_in_base64(self) -> Self {
+            if let Self::Typed(typed) = self {
+                Self::Typed(typed.or_in_base64().await)
+            } else {
+                self
+            }
+        }
     }
 
     impl<'de> Deserialize<'de> for InternalOneBotSegment {

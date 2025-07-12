@@ -5,10 +5,10 @@ use tokio_tungstenite::tungstenite::protocol::Message as WsMessage;
 use crate::{api::response::ApiResponse, event::RawEvent};
 
 pub mod api;
+pub mod endpoint;
 pub mod event;
 pub mod message;
 pub mod util;
-pub mod endpoint;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(untagged)]
@@ -19,7 +19,8 @@ pub enum OneBotMessage {
 
 #[derive(Clone)]
 pub struct AdapterState {
-    pub ws_tx: mpsc::UnboundedSender<WsMessage>,
+    pub ws_tx:               mpsc::UnboundedSender<WsMessage>,
+    pub convert_file_base64: bool,
 }
 
 #[cfg(test)]

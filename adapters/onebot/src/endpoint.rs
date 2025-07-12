@@ -1,8 +1,18 @@
 #![allow(clippy::unused_async)]
 use serde_json::json;
-use sithra_kit::{server::{extract::{correlation::Correlation, payload::Payload, state::State}, response::Response}, transport::channel::Channel, types::{channel::SetMute, message::{Segments, SendMessage}}};
+use sithra_kit::{
+    server::{
+        extract::{correlation::Correlation, payload::Payload, state::State},
+        response::Response,
+    },
+    transport::channel::Channel,
+    types::{
+        channel::SetMute,
+        message::{Segments, SendMessage},
+    },
+};
 
-use crate::{api::request::ApiCall, message::OneBotSegment, util::send_req, AdapterState};
+use crate::{AdapterState, api::request::ApiCall, message::OneBotSegment, util::send_req};
 
 pub async fn send_message(
     Payload(payload): Payload<SendMessage>,
@@ -16,13 +26,22 @@ pub async fn send_message(
         },
         Err(_err) => None,
     });
+    let segments: Segments<_> = if state.convert_file_base64 {
+        let mut result = Segments::new();
+        for seg in segments {
+            result.push(seg.or_in_base64().await);
+        }
+        result
+    } else {
+        segments.collect()
+    };
     let req = if let Some(group_id) = channel.parent_id {
         ApiCall::new(
             "send_msg",
             json!({
                 "message_type": "group",
                 "group_id": group_id,
-                "message": segments.collect::<Segments<_>>()
+                "message": segments
             }),
             id,
         )
@@ -32,7 +51,7 @@ pub async fn send_message(
             json!({
                 "message_type": "private",
                 "user_id": channel.id,
-                "message": segments.collect::<Segments<_>>()
+                "message": segments
             }),
             id,
         )

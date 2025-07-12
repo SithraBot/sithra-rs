@@ -10,7 +10,7 @@ use sithra_adapter_onebot::{
         response::{ApiResponse, ApiResponseKind},
     },
     endpoint::{send_message, set_mute},
-    util::ConnectionManager,
+    util::{ConnectionManager, is_loopback},
 };
 use sithra_kit::{
     layers::BotId,
@@ -34,6 +34,8 @@ struct Config {
     #[serde(default = "default_health_check_interval")]
     #[serde_as(as = "serde_with::DurationSeconds<u64>")]
     health_check_interval: Duration,
+    #[serde(rename = "convert-file-base64")]
+    convert_file_base64:   Option<bool>,
 }
 
 const fn default_health_check_interval() -> Duration {
@@ -51,7 +53,13 @@ async fn main() {
         ws_url,
         token,
         health_check_interval,
+        convert_file_base64,
     } = config;
+
+    let convert_file_base64 = match convert_file_base64 {
+        Some(v) => v,
+        None => !is_loopback(&ws_url),
+    };
 
     // create connection manager
     let (conn_manager, ws_rx) = ConnectionManager::new(ws_url, token);
@@ -63,6 +71,7 @@ async fn main() {
 
     let state = AdapterState {
         ws_tx: ws_tx.clone(),
+        convert_file_base64,
     };
 
     let plugin = plugin.map(|r| {
@@ -218,10 +227,13 @@ async fn recv_loop<S>(
                 };
 
                 let message = onebot_adaptation(message, &bot_id, &health_tx);
-                if let Some(message) = message {
-                    if let Err(e) = sink.send(message) {
-                        log::error!("Failed to send message to sink: {e}");
-                    }
+
+                let Some(message) = message else {
+                    continue;
+                };
+
+                if let Err(e) = sink.send(message) {
+                    log::error!("Failed to send message to sink: {e}");
                 }
             }
             () = tokio::time::sleep(health_check_interval) => {
