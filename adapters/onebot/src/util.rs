@@ -143,8 +143,8 @@ impl ConnectionManager {
                     .map(|(stream, _)| stream)
                     .map_err(|e| format!("WebSocket connection failed: {e}"))
             },
-            5,                          // max retries
-            Duration::from_millis(100), // initial delay
+            7,                          // max retries
+            Duration::from_millis(500), // initial delay
             Duration::from_secs(30),    // max delay
         )
         .await

@@ -149,7 +149,13 @@ async fn handle_connection(
     });
 
     // spawn receive task
-    let recv_task = tokio::spawn(recv_loop(ws_read, bot_id, sink, health_tx));
+    let recv_task = tokio::spawn(recv_loop(
+        ws_read,
+        bot_id,
+        sink,
+        health_tx,
+        health_check_interval,
+    ));
 
     let check_req = serde_json::to_string(&ApiCall::new(
         "get_status",
@@ -160,12 +166,11 @@ async fn handle_connection(
         "If you see this message, it indicates that an internal error has occurred. Please report \
          the issue.",
     );
+    let health_check_timeout = health_check_interval.div(2);
     let health_check = tokio::spawn(async move {
         let mut health_rx = health_rx;
-        let health_check_interval = health_check_interval;
-        let health_check_timeout = health_check_interval.div(2);
         loop {
-            tokio::time::sleep(health_check_interval).await;
+            health_rx.changed().await.ok();
             let _ = ws_tx.send(WsMessage::text(&check_req));
             let result = tokio::time::timeout(health_check_timeout, health_rx.changed()).await;
             if result.is_err() {
@@ -197,22 +202,30 @@ async fn recv_loop<S>(
     bot_id: String,
     sink: ClientSink,
     health_tx: watch::Sender<bool>,
+    health_check_interval: Duration,
 ) where
     S: StreamExt<Item = Result<WsMessage, tokio_tungstenite::tungstenite::Error>> + Unpin,
 {
-    while let Some(message) = ws_read.next().await {
-        let message = match message {
-            Ok(msg) => msg,
-            Err(e) => {
-                log::error!("WebSocket receive error: {e}");
-                break;
-            }
-        };
+    loop {
+        tokio::select! {
+            Some(message) = ws_read.next() => {
+                let message = match message {
+                    Ok(msg) => msg,
+                    Err(e) => {
+                        log::error!("WebSocket receive error: {e}");
+                        break;
+                    }
+                };
 
-        let message = onebot_adaptation(message, &bot_id, &health_tx);
-        if let Some(message) = message {
-            if let Err(e) = sink.send(message) {
-                log::error!("Failed to send message to sink: {e}");
+                let message = onebot_adaptation(message, &bot_id, &health_tx);
+                if let Some(message) = message {
+                    if let Err(e) = sink.send(message) {
+                        log::error!("Failed to send message to sink: {e}");
+                    }
+                }
+            }
+            () = tokio::time::sleep(health_check_interval) => {
+                health_tx.send(false).ok();
             }
         }
     }
