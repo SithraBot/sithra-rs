@@ -10,11 +10,11 @@ pub mod response {
 
     #[derive(Debug, Clone, Deserialize, Serialize)]
     pub struct ApiResponse {
-        retcode: i32,
+        retcode:  i32,
         #[serde(default)]
-        status:  String,
-        echo:    Ulid,
-        pub data:    Option<ApiResponseKind>,
+        status:   String,
+        echo:     Ulid,
+        pub data: Option<ApiResponseKind>,
     }
 
     impl ApiResponse {
@@ -55,7 +55,7 @@ pub mod response {
         SendMessage(SendMessageResponse),
         GetStatus(Status),
     }
-    
+
     #[derive(Debug, Clone, Deserialize, Serialize)]
     pub struct Status {
         pub good: bool,

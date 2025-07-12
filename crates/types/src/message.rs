@@ -65,6 +65,18 @@ impl Segment {
     }
 }
 
+impl From<String> for Segment {
+    fn from(value: String) -> Self {
+        Self::text(value)
+    }
+}
+
+impl From<&str> for Segment {
+    fn from(value: &str) -> Self {
+        Self::text(value)
+    }
+}
+
 #[macro_export]
 macro_rules! msg {
     ($seg:ident[$($segment:ident$(: $value:expr)?),*$(,)?]) => {
@@ -96,6 +108,22 @@ impl<Seg: Into<Segment>> From<SmallVec<[Seg; 1]>> for SendMessage {
     fn from(content: SmallVec<[Seg; 1]>) -> Self {
         Self {
             content: content.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+impl From<String> for SendMessage {
+    fn from(content: String) -> Self {
+        Self {
+            content: SmallVec::from([content.into()]),
+        }
+    }
+}
+
+impl From<&str> for SendMessage {
+    fn from(content: &str) -> Self {
+        Self {
+            content: SmallVec::from([content.into()]),
         }
     }
 }

@@ -2,10 +2,12 @@ use base64::{Engine, prelude::BASE64_STANDARD};
 use sithra_kit::{
     server::extract::payload::Payload,
     types::{
-        message::{Message, Segments, SendMessage, common::CommonSegment},
+        message::{Message, SendMessage, common::CommonSegment as H},
         msg,
     },
 };
+
+use crate::util::cmd;
 
 async fn get_image(url: &str) -> Option<String> {
     match reqwest::get(url).await {
@@ -21,24 +23,14 @@ async fn handle_mc_command(id: &str, endpoint: &str, error_message: &str) -> Sen
     let id = id.trim();
     let url = format!("https://nmsr.nickac.dev/{endpoint}/{id}");
     let message = if let Some(image) = get_image(&url).await {
-        msg!(CommonSegment[img: &image])
+        msg!(H[img: &image])
     } else {
-        msg!(CommonSegment[text: &error_message])
+        msg!(H[text: &error_message])
     };
     message.into()
 }
 
-pub fn cmd(msg: &Segments<CommonSegment>) -> String {
-    msg.iter().fold(String::new(), |f, s| {
-        if let CommonSegment::Text(text) = s {
-            f + text
-        } else {
-            f
-        }
-    })
-}
-
-pub async fn mcbody(Payload(message): Payload<Message<CommonSegment>>) -> Option<SendMessage> {
+pub async fn mcbody(Payload(message): Payload<Message<H>>) -> Option<SendMessage> {
     Some(
         handle_mc_command(
             cmd(&message.content).strip_prefix("mcbody")?,
@@ -49,7 +41,7 @@ pub async fn mcbody(Payload(message): Payload<Message<CommonSegment>>) -> Option
     )
 }
 
-pub async fn mchead(Payload(message): Payload<Message<CommonSegment>>) -> Option<SendMessage> {
+pub async fn mchead(Payload(message): Payload<Message<H>>) -> Option<SendMessage> {
     Some(
         handle_mc_command(
             cmd(&message.content).strip_prefix("mchead")?,
@@ -60,7 +52,7 @@ pub async fn mchead(Payload(message): Payload<Message<CommonSegment>>) -> Option
     )
 }
 
-pub async fn mcface(Payload(message): Payload<Message<CommonSegment>>) -> Option<SendMessage> {
+pub async fn mcface(Payload(message): Payload<Message<H>>) -> Option<SendMessage> {
     Some(
         handle_mc_command(
             cmd(&message.content).strip_prefix("mcface")?,
@@ -71,7 +63,7 @@ pub async fn mcface(Payload(message): Payload<Message<CommonSegment>>) -> Option
     )
 }
 
-pub async fn mcskin(Payload(message): Payload<Message<CommonSegment>>) -> Option<SendMessage> {
+pub async fn mcskin(Payload(message): Payload<Message<H>>) -> Option<SendMessage> {
     Some(
         handle_mc_command(
             cmd(&message.content).strip_prefix("mcskin")?,
