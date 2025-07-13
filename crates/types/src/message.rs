@@ -88,6 +88,16 @@ macro_rules! msg {
     };
 }
 
+#[macro_export]
+macro_rules! smsg {
+    ($seg:ident[$($segment:ident$(: $value:expr)?),*$(,)?]) => {
+        $crate::message::SendMessage::from($crate::msg!($seg[$($segment$(: $value)?),*]))
+    };
+    ($seg:expr) => {
+       $crate::message::SendMessage::from($seg)
+    }
+}
+
 #[typeshare]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SendMessage<Seg = Segment> {
@@ -104,10 +114,18 @@ impl SendMessage {
     }
 }
 
-impl<Seg: Into<Segment>> From<SmallVec<[Seg; 1]>> for SendMessage {
+// impl<Seg: Into<Segment>> From<SmallVec<[Seg; 1]>> for SendMessage {
+//     fn from(content: SmallVec<[Seg; 1]>) -> Self {
+//         Self {
+//             content: content.into_iter().map(Into::into).collect(),
+//         }
+//     }
+// }
+
+impl<Seg: TryInto<Segment>> From<SmallVec<[Seg; 1]>> for SendMessage {
     fn from(content: SmallVec<[Seg; 1]>) -> Self {
         Self {
-            content: content.into_iter().map(Into::into).collect(),
+            content: content.into_iter().filter_map(|seg| seg.try_into().ok()).collect(),
         }
     }
 }

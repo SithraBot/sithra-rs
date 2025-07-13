@@ -946,6 +946,7 @@ version = "0.1.0"
 dependencies = [
  "log",
  "serde",
+ "sithra-adapter-onebot",
  "sithra-kit",
  "tokio",
  "triomphe",

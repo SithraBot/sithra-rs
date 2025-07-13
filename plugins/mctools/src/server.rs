@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 use sithra_kit::{
     server::extract::{botid::BotId, payload::Payload, state::State},
     types::{
-        message::{Message, SendMessage, common::CommonSegment as H},
-        msg,
+        message::{common::CommonSegment as H, Message, SendMessage},
+        smsg,
     },
 };
 use thiserror::Error;
@@ -162,7 +162,7 @@ pub async fn mcserver(
         .send();
 
     let Ok(response) = req_future.await else {
-        return Some("请求失败喵".into());
+        return Some(smsg!("请求失败喵"));
     };
 
     let status = response.status();
@@ -171,7 +171,7 @@ pub async fn mcserver(
         Ok(info) => info,
         Err(err) => {
             log::error!("Failed to parse API response: {err}, status: {status}");
-            return Some("响应解析失败喵，可能是服务器状态异常喵".into());
+            return Some(smsg!("响应解析失败喵，可能是服务器状态异常喵"));
         }
     };
 
@@ -180,11 +180,11 @@ pub async fn mcserver(
     let img = render_svg(&apply_template(&template), &svg_options);
 
     let Ok(img) = img else {
-        return Some("卡片渲染失败喵".into());
+        return Some(smsg!("卡片渲染失败喵"));
     };
 
     let base64 = BASE64_STANDARD.encode(img);
     let img = format!("base64://{base64}");
 
-    Some(msg!(H[img: img]).into())
+    Some(smsg!(H[img: img]))
 }

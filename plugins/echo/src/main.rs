@@ -1,7 +1,10 @@
 use sithra_kit::{
     plugin::Plugin,
     server::extract::payload::Payload,
-    types::message::{Message, SendMessage, common::CommonSegment},
+    types::{
+        message::{Message, SendMessage, common::CommonSegment as H},
+        smsg,
+    },
 };
 
 #[tokio::main]
@@ -15,14 +18,14 @@ async fn main() {
     }
 }
 
-async fn echo(Payload(msg): Payload<Message<CommonSegment>>) -> Option<SendMessage> {
+async fn echo(Payload(msg): Payload<Message<H>>) -> Option<SendMessage> {
     let text = msg.content.first()?.text_opt()?;
     let text = text.strip_prefix("echo ")?.to_owned();
     log::info!("echo recv: {text}");
     let Message { mut content, .. } = msg;
     {
         let first = content.first_mut()?;
-        *first = CommonSegment::text(&text);
+        *first = H::text(&text);
     }
-    Some(SendMessage::new(content))
+    Some(smsg!(content))
 }

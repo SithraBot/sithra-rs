@@ -24,8 +24,8 @@ matchit = { version = "0.8" }
 triomphe = { version = "0.1" }
 typeshare = { version = "1" }
 log = { version = "0.4", features = ["serde"] }
-once_cell = { version = "1.21.3" }
-ahash = "0.8.12"
+once_cell = { version = "1.21" }
+ahash = "0.8"
 
 # Workspace
 
@@ -34,6 +34,7 @@ sithra-types = { path = "crates/types" }
 sithra-server = { path = "crates/server" }
 sithra-kit = { path = "crates/kit" }
 sithra-server-macros = { path = "crates/server-macros" }
+sithra-adapter-onebot = { path = "adapters/onebot" }
 
 [workspace.lints.clippy]
 nursery = { level = "warn", priority = -1 }
