@@ -53,7 +53,7 @@ impl RawEvent {
             PostType::Message(message_event) => {
                 let message: Message = message_event.into();
                 let req: RequestDataPack = RequestDataPack::default()
-                    .path(sithra_kit::types::message::event::PATH)
+                    .path(Message::path())
                     .channel_opt(channel)
                     .bot_id(bot_id)
                     .payload(message);
@@ -93,7 +93,7 @@ impl From<MessageEvent> for Message {
             content: value
                 .message
                 .into_iter()
-                .filter_map(|segment| OneBotSegment::Typed(segment).try_into().ok())
+                .filter_map(|segment| OneBotSegment(segment).try_into().ok())
                 .collect(),
         }
     }

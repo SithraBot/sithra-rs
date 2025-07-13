@@ -7,6 +7,7 @@ pub mod __private {
     pub use sithra_transport;
 }
 
+pub mod channel;
 pub mod initialize;
 pub mod log;
 pub mod message;

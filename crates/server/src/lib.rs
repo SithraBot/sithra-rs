@@ -11,10 +11,12 @@ pub mod response;
 pub mod routing;
 pub mod server;
 pub mod shared;
+pub mod traits;
 pub use sithra_transport as transport;
 pub mod sync {
     pub use triomphe::*;
 }
+pub mod service;
 #[doc(hidden)]
 pub mod __private {
     pub use serde::Deserialize;
@@ -56,7 +58,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::{
+        fmt::Display,
+        sync::atomic::{AtomicUsize, Ordering},
+    };
 
     use sithra_transport::datapack::RequestDataPack;
     use tokio::sync::Mutex;
@@ -75,7 +80,7 @@ mod tests {
         counter: Arc<AtomicUsize>,
     }
 
-    fn test_data(path: impl Into<String>) -> RequestDataPack {
+    fn test_data(path: impl Display) -> RequestDataPack {
         RequestDataPack::default().path(path)
     }
 
@@ -129,6 +134,9 @@ mod tests {
         let response = router.call(request).await.unwrap();
         tokio::task::yield_now().await;
         assert_eq!(state.counter.load(Ordering::SeqCst), 4);
-        assert_eq!(response.data.map(|r| r.correlation), Some(correlation));
+        assert_eq!(
+            response.data.first().map(|r| r.correlation),
+            Some(correlation)
+        );
     }
 }

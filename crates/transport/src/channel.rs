@@ -1,5 +1,7 @@
 #![doc = include_str!("./channel.md")]
 
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 use typeshare::typeshare;
 
@@ -121,7 +123,7 @@ impl Channel {
     }
 
     #[must_use]
-    pub fn set_self_id<T: ToString>(mut self, id: &T) -> Self {
+    pub fn set_self_id<T: Display>(mut self, id: T) -> Self {
         self.self_id = Some(id.to_string());
         self
     }

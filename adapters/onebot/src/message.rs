@@ -1,18 +1,21 @@
+use std::fmt::Display;
+
 use de::Error as _;
+use internal::{Contact, InternalOneBotSegment, InternalOneBotTypedSegment, Location, Poke};
 use ser::Error as _;
 use serde::{Deserialize, Serialize, de, ser};
 use sithra_kit::types::message::{NIL, Segment};
 
-use crate::message::internal::{
-    Contact, InternalOneBotSegment, InternalOneBotUnknown, Location, Poke,
-};
+use crate::message::internal::InternalOneBotUnknownSegment;
 
 pub mod internal {
-    use serde::{Deserialize, Serialize};
+    use serde::{Deserialize, Serialize, de::Error as _};
+
+    use crate::util::or_in_base64;
 
     #[derive(Debug, Clone, Deserialize, Serialize)]
     #[serde(rename_all = "snake_case", tag = "type", content = "data")]
-    pub enum InternalOneBotSegment {
+    pub enum InternalOneBotTypedSegment {
         Text {
             text: String,
         },
@@ -43,8 +46,76 @@ pub mod internal {
         Reply {
             id: String,
         },
-        #[serde(other)]
-        Unknown,
+    }
+
+    impl InternalOneBotTypedSegment {
+        pub async fn or_in_base64(self) -> Self {
+            match self {
+                Self::Image { file } => Self::Image {
+                    file: or_in_base64(&file).await.unwrap_or(file),
+                },
+                Self::Record { file } => Self::Record {
+                    file: or_in_base64(&file).await.unwrap_or(file),
+                },
+                Self::Video { file } => Self::Video {
+                    file: or_in_base64(&file).await.unwrap_or(file),
+                },
+                _ => self,
+            }
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    pub enum InternalOneBotSegment {
+        Typed(InternalOneBotTypedSegment),
+        Unknown(InternalOneBotUnknownSegment),
+    }
+
+    impl InternalOneBotSegment {
+        pub async fn or_in_base64(self) -> Self {
+            if let Self::Typed(typed) = self {
+                Self::Typed(typed.or_in_base64().await)
+            } else {
+                self
+            }
+        }
+    }
+
+    impl<'de> Deserialize<'de> for InternalOneBotSegment {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            let value = serde_json::Value::deserialize(deserializer)?;
+            let typed = InternalOneBotTypedSegment::deserialize(value.clone());
+            match typed {
+                Ok(typed) => Ok(Self::Typed(typed)),
+                Err(_err) => {
+                    let unknown = InternalOneBotUnknownSegment::deserialize(value)
+                        .map_err(D::Error::custom)?;
+                    Ok(Self::Unknown(unknown))
+                }
+            }
+        }
+    }
+
+    impl Serialize for InternalOneBotSegment {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            match self {
+                Self::Typed(typed) => typed.serialize(serializer),
+                Self::Unknown(unknown) => unknown.serialize(serializer),
+            }
+        }
+    }
+
+    #[derive(Debug, Clone, Deserialize, Serialize)]
+    pub struct InternalOneBotUnknownSegment {
+        #[serde(default, rename = "type")]
+        pub ty:   String,
+        pub data: rmpv::Value,
     }
 
     #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -76,89 +147,112 @@ pub mod internal {
 }
 
 #[derive(Debug, Clone)]
-pub enum OneBotSegment {
-    Typed(InternalOneBotSegment),
-    Unknown(InternalOneBotUnknown),
-}
+pub struct OneBotSegment(pub InternalOneBotSegment);
 
 impl OneBotSegment {
-    pub fn text<T: ToString>(content: &T) -> Self {
-        Self::Typed(InternalOneBotSegment::Text {
-            text: content.to_string(),
-        })
+    pub fn text<T: Display>(content: T) -> Self {
+        Self(InternalOneBotSegment::Typed(
+            InternalOneBotTypedSegment::Text {
+                text: content.to_string(),
+            },
+        ))
     }
 
-    pub fn image<T: ToString>(url: &T) -> Self {
-        Self::Typed(InternalOneBotSegment::Image {
-            file: url.to_string(),
-        })
+    pub fn image<T: Display>(url: T) -> Self {
+        Self(InternalOneBotSegment::Typed(
+            InternalOneBotTypedSegment::Image {
+                file: url.to_string(),
+            },
+        ))
     }
 
-    pub fn img<T: ToString>(url: &T) -> Self {
+    pub fn img<T: Display>(url: T) -> Self {
         Self::image(url)
     }
 
-    pub fn at<T: ToString>(target: &T) -> Self {
-        Self::Typed(InternalOneBotSegment::At {
-            id: target.to_string(),
-            qq: target.to_string(),
-        })
+    pub fn at<T: Display>(target: T) -> Self {
+        Self(InternalOneBotSegment::Typed(
+            InternalOneBotTypedSegment::At {
+                id: target.to_string(),
+                qq: target.to_string(),
+            },
+        ))
     }
 
-    pub fn reply<T: ToString>(target: &T) -> Self {
-        Self::Typed(InternalOneBotSegment::Reply {
-            id: target.to_string(),
-        })
+    pub fn reply<T: Display>(target: T) -> Self {
+        Self(InternalOneBotSegment::Typed(
+            InternalOneBotTypedSegment::Reply {
+                id: target.to_string(),
+            },
+        ))
     }
 
     #[must_use]
     pub const fn location((lat, lon): (f64, f64)) -> Self {
-        Self::Typed(InternalOneBotSegment::Location(Location { lat, lon }))
+        Self(InternalOneBotSegment::Typed(
+            InternalOneBotTypedSegment::Location(Location { lat, lon }),
+        ))
     }
 
-    pub fn face<T: ToString>(id: &T) -> Self {
-        Self::Typed(InternalOneBotSegment::Face { id: id.to_string() })
+    pub fn face<T: Display>(id: T) -> Self {
+        Self(InternalOneBotSegment::Typed(
+            InternalOneBotTypedSegment::Face { id: id.to_string() },
+        ))
     }
 
-    pub fn video<T: ToString>(url: &T) -> Self {
-        Self::Typed(InternalOneBotSegment::Video {
-            file: url.to_string(),
-        })
+    pub fn video<T: Display>(url: T) -> Self {
+        Self(InternalOneBotSegment::Typed(
+            InternalOneBotTypedSegment::Video {
+                file: url.to_string(),
+            },
+        ))
     }
 
-    pub fn record<T: ToString>(url: &T) -> Self {
-        Self::Typed(InternalOneBotSegment::Record {
-            file: url.to_string(),
-        })
+    pub fn record<T: Display>(url: T) -> Self {
+        Self(InternalOneBotSegment::Typed(
+            InternalOneBotTypedSegment::Record {
+                file: url.to_string(),
+            },
+        ))
     }
 
     #[must_use]
     pub const fn rps() -> Self {
-        Self::Typed(InternalOneBotSegment::Rps)
+        Self(InternalOneBotSegment::Typed(
+            InternalOneBotTypedSegment::Rps,
+        ))
     }
 
     #[must_use]
     pub const fn dice() -> Self {
-        Self::Typed(InternalOneBotSegment::Dice)
+        Self(InternalOneBotSegment::Typed(
+            InternalOneBotTypedSegment::Dice,
+        ))
     }
 
     #[must_use]
     pub const fn shake() -> Self {
-        Self::Typed(InternalOneBotSegment::Shake)
+        Self(InternalOneBotSegment::Typed(
+            InternalOneBotTypedSegment::Shake,
+        ))
     }
 
-    pub fn poke<T1: ToString, T2: ToString>((ty, id): (&T1, &T2)) -> Self {
-        Self::Typed(InternalOneBotSegment::Poke(Poke {
-            ty: ty.to_string(),
-            id: id.to_string(),
-        }))
+    pub fn poke<T1: Display, T2: Display>((ty, id): (T1, T2)) -> Self {
+        Self(InternalOneBotSegment::Typed(
+            InternalOneBotTypedSegment::Poke(Poke {
+                ty: ty.to_string(),
+                id: id.to_string(),
+            }),
+        ))
     }
 
-    pub fn contact<T1: ToString, T2: ToString>((ty, id): (&T1, &T2)) -> Self {
-        Self::Typed(InternalOneBotSegment::Contact(Contact {
-            ty: ty.to_string(),
-            id: id.to_string(),
-        }))
+    pub fn contact<T1: Display, T2: Display>((ty, id): (T1, T2)) -> Self {
+        Self(InternalOneBotSegment::Typed(
+            InternalOneBotTypedSegment::Contact(Contact {
+                ty: ty.to_string(),
+                id: id.to_string(),
+            }),
+        ))
     }
 }
 
@@ -168,45 +262,66 @@ impl TryFrom<Segment> for OneBotSegment {
     fn try_from(value: Segment) -> Result<Self, Self::Error> {
         let Segment { ty, data } = value;
         match ty.as_str() {
-            "text" => Ok(Self::Typed(InternalOneBotSegment::Text {
-                text: rmpv::ext::from_value(data)?,
-            })),
-            "face" => Ok(Self::Typed(InternalOneBotSegment::Face {
-                id: rmpv::ext::from_value(data)?,
-            })),
-            "image" => Ok(Self::Typed(InternalOneBotSegment::Image {
-                file: rmpv::ext::from_value(data)?,
-            })),
-            "record" => Ok(Self::Typed(InternalOneBotSegment::Record {
-                file: rmpv::ext::from_value(data)?,
-            })),
-            "video" => Ok(Self::Typed(InternalOneBotSegment::Video {
-                file: rmpv::ext::from_value(data)?,
-            })),
+            "text" => Ok(Self(InternalOneBotSegment::Typed(
+                InternalOneBotTypedSegment::Text {
+                    text: rmpv::ext::from_value(data)?,
+                },
+            ))),
+            "face" => Ok(Self(InternalOneBotSegment::Typed(
+                InternalOneBotTypedSegment::Face {
+                    id: rmpv::ext::from_value(data)?,
+                },
+            ))),
+            "image" => Ok(Self(InternalOneBotSegment::Typed(
+                InternalOneBotTypedSegment::Image {
+                    file: rmpv::ext::from_value(data)?,
+                },
+            ))),
+            "record" => Ok(Self(InternalOneBotSegment::Typed(
+                InternalOneBotTypedSegment::Record {
+                    file: rmpv::ext::from_value(data)?,
+                },
+            ))),
+            "video" => Ok(Self(InternalOneBotSegment::Typed(
+                InternalOneBotTypedSegment::Video {
+                    file: rmpv::ext::from_value(data)?,
+                },
+            ))),
             "at" => {
                 let id: String = rmpv::ext::from_value(data)?;
-                Ok(Self::Typed(InternalOneBotSegment::At {
-                    id: id.clone(),
-                    qq: id,
-                }))
+                Ok(Self(InternalOneBotSegment::Typed(
+                    InternalOneBotTypedSegment::At {
+                        id: id.clone(),
+                        qq: id,
+                    },
+                )))
             }
-            "rps" => Ok(Self::Typed(InternalOneBotSegment::Rps)),
-            "dice" => Ok(Self::Typed(InternalOneBotSegment::Dice)),
-            "shake" => Ok(Self::Typed(InternalOneBotSegment::Shake)),
-            "poke" => Ok(Self::Typed(InternalOneBotSegment::Poke(
-                rmpv::ext::from_value(data)?,
+            "rps" => Ok(Self(InternalOneBotSegment::Typed(
+                InternalOneBotTypedSegment::Rps,
             ))),
-            "contact" => Ok(Self::Typed(InternalOneBotSegment::Contact(
-                rmpv::ext::from_value(data)?,
+            "dice" => Ok(Self(InternalOneBotSegment::Typed(
+                InternalOneBotTypedSegment::Dice,
             ))),
-            "location" => Ok(Self::Typed(InternalOneBotSegment::Location(
-                rmpv::ext::from_value(data)?,
+            "shake" => Ok(Self(InternalOneBotSegment::Typed(
+                InternalOneBotTypedSegment::Shake,
             ))),
-            "reply" => Ok(Self::Typed(InternalOneBotSegment::Reply {
-                id: rmpv::ext::from_value(data)?,
-            })),
-            "unknown" => Ok(Self::Typed(InternalOneBotSegment::Unknown)),
-            _ => Ok(Self::Unknown(InternalOneBotUnknown { ty, data })),
+            "poke" => Ok(Self(InternalOneBotSegment::Typed(
+                InternalOneBotTypedSegment::Poke(rmpv::ext::from_value(data)?),
+            ))),
+            "contact" => Ok(Self(InternalOneBotSegment::Typed(
+                InternalOneBotTypedSegment::Contact(rmpv::ext::from_value(data)?),
+            ))),
+            "location" => Ok(Self(InternalOneBotSegment::Typed(
+                InternalOneBotTypedSegment::Location(rmpv::ext::from_value(data)?),
+            ))),
+            "reply" => Ok(Self(InternalOneBotSegment::Typed(
+                InternalOneBotTypedSegment::Reply {
+                    id: rmpv::ext::from_value(data)?,
+                },
+            ))),
+            _ => Ok(Self(InternalOneBotSegment::Unknown(
+                InternalOneBotUnknownSegment { ty, data },
+            ))),
         }
     }
 }
@@ -216,29 +331,30 @@ impl TryFrom<OneBotSegment> for Segment {
 
     fn try_from(value: OneBotSegment) -> Result<Self, Self::Error> {
         match value {
-            OneBotSegment::Typed(typed) => match typed {
-                InternalOneBotSegment::Text { text } => Ok(Self::text(&text)),
-                InternalOneBotSegment::Face { id } => Self::custom(&"face", id),
-                InternalOneBotSegment::Image { file } => Ok(Self::image(&file)),
-                InternalOneBotSegment::Record { file } => Self::custom(&"file", file),
-                InternalOneBotSegment::Video { file } => Self::custom(&"video", file),
-                InternalOneBotSegment::At { id, qq } => {
+            OneBotSegment(InternalOneBotSegment::Typed(typed)) => match typed {
+                InternalOneBotTypedSegment::Text { text } => Ok(Self::text(&text)),
+                InternalOneBotTypedSegment::Face { id } => Self::custom("face", id),
+                InternalOneBotTypedSegment::Image { file } => Ok(Self::image(file)),
+                InternalOneBotTypedSegment::Record { file } => Self::custom("file", file),
+                InternalOneBotTypedSegment::Video { file } => Self::custom("video", file),
+                InternalOneBotTypedSegment::At { id, qq } => {
                     if qq.is_empty() {
                         Ok(Self::at(&id))
                     } else {
                         Ok(Self::at(&qq))
                     }
                 }
-                InternalOneBotSegment::Rps => Self::custom(&"rps", NIL),
-                InternalOneBotSegment::Dice => Self::custom(&"dice", NIL),
-                InternalOneBotSegment::Shake => Self::custom(&"shake", NIL),
-                InternalOneBotSegment::Reply { id } => Self::custom(&"reply", id),
-                InternalOneBotSegment::Poke(poke) => Self::custom(&"poke", poke),
-                InternalOneBotSegment::Contact(contact) => Self::custom(&"contact", contact),
-                InternalOneBotSegment::Location(location) => Self::custom(&"location", location),
-                InternalOneBotSegment::Unknown => Self::custom(&"unknown", NIL),
+                InternalOneBotTypedSegment::Rps => Self::custom("rps", NIL),
+                InternalOneBotTypedSegment::Dice => Self::custom("dice", NIL),
+                InternalOneBotTypedSegment::Shake => Self::custom("shake", NIL),
+                InternalOneBotTypedSegment::Reply { id } => Self::custom("reply", id),
+                InternalOneBotTypedSegment::Poke(poke) => Self::custom("poke", poke),
+                InternalOneBotTypedSegment::Contact(contact) => Self::custom("contact", contact),
+                InternalOneBotTypedSegment::Location(location) => {
+                    Self::custom("location", location)
+                }
             },
-            OneBotSegment::Unknown(unknown) => Ok(Self {
+            OneBotSegment(InternalOneBotSegment::Unknown(unknown)) => Ok(Self {
                 ty:   unknown.ty,
                 data: unknown.data,
             }),

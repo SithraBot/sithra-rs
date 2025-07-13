@@ -1,5 +1,6 @@
 use std::{
     convert::Infallible,
+    fmt::Display,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -17,7 +18,7 @@ use tower::{Layer, Service};
 pub struct BotId(pub String);
 
 impl BotId {
-    pub fn new(id: &impl ToString) -> Self {
+    pub fn new(id: impl Display) -> Self {
         Self(id.to_string())
     }
 }

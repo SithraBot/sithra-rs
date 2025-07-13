@@ -1,8 +1,9 @@
 use sithra_server::{
-    extract::{from_ref::FromRef, payload::Payload, state::State},
+    extract::{payload::Payload, state::State},
     on,
     routing::router::Router,
     server::{Client, Server},
+    traits::FromRef,
 };
 use sithra_transport::{datapack::RequestDataPack, peer::Peer};
 

@@ -6,7 +6,7 @@ use std::{
 use sithra_transport::datapack::RequestDataPack;
 use triomphe::Arc;
 
-use crate::extract::{FromRequest, from_ref::FromRef};
+use crate::{extract::FromRequest, traits::FromRef};
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct State<S>(pub S);

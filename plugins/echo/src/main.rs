@@ -6,7 +6,7 @@ use sithra_kit::{
 
 #[tokio::main]
 async fn main() {
-    let (plugin, ()) = Plugin::new().await.unwrap();
+    let (plugin, _) = Plugin::new::<()>().await.unwrap();
     let plugin = plugin.map(|r| r.route_typed(Message::on(echo)));
     log::info!("Echo plugin started");
     tokio::select! {
@@ -16,13 +16,7 @@ async fn main() {
 }
 
 async fn echo(Payload(msg): Payload<Message<CommonSegment>>) -> Option<SendMessage> {
-    let text = msg.content.iter().fold(String::new(), |f, s| {
-        if let CommonSegment::Text(text) = s {
-            f + text
-        } else {
-            f
-        }
-    });
+    let text = msg.content.first()?.text_opt()?;
     let text = text.strip_prefix("echo ")?.to_owned();
     log::info!("echo recv: {text}");
     let Message { mut content, .. } = msg;

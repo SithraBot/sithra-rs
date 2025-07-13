@@ -12,10 +12,13 @@ mod test {
     }
     #[test]
     fn init() {
-        let init = Initialize::new(A {
-            value: "hello".to_owned(),
-        });
-        let pack = DataPack::builder().payload(init).path(&"/").build();
+        let init = Initialize::new(
+            A {
+                value: "hello".to_owned(),
+            },
+            "/data",
+        );
+        let pack = DataPack::builder().payload(init).path("/").build();
         let raw = pack.serialize_to_raw().unwrap();
         let data = DataPack::deserialize(&raw.data).unwrap();
         let init: Initialize<A> = data.payload().unwrap();

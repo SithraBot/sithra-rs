@@ -4,13 +4,13 @@ use tower::Service;
 
 use crate::{
     handler::Handler,
-    multi::MultiServiceRaceAnyError,
     request::Request,
     routing::{
         endpoint::Endpoint,
         route::{Route, RouteFuture},
         router::Router,
     },
+    service::JoinAllService,
 };
 
 pub struct BoxedIntoRoute<S, E>(Box<dyn ErasedIntoRoute<S, E>>);
@@ -35,12 +35,10 @@ where
         Self(Box::new(MakeErasedHandler {
             handler:    endpoints,
             into_route: |endpoints, state: S| {
-                Route::new(MultiServiceRaceAnyError::from_array(endpoints.map(
-                    |h| match h {
-                        Endpoint::Route(r) => r,
-                        Endpoint::BoxedHandler(s) => s.into_route(state.clone()),
-                    },
-                )))
+                Route::new(JoinAllService::new(endpoints.map(|h| match h {
+                    Endpoint::Route(r) => r,
+                    Endpoint::BoxedHandler(s) => s.into_route(state.clone()),
+                })))
             },
         }))
     }

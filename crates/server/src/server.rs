@@ -10,7 +10,7 @@
 use std::convert::Infallible;
 
 use either::Either;
-use futures_util::{SinkExt, StreamExt};
+use futures_util::{FutureExt, SinkExt, StreamExt, future::Map};
 use sithra_transport::{
     datapack::{DataPack, DataPackCodec, DataPackCodecError, RequestDataPack},
     peer::{Reader, Writer},
@@ -31,6 +31,7 @@ use crate::{
     request::Request,
     response::Response,
     shared::{ReceiverGuard, SharedOneshotMap},
+    traits::TypedRequest,
 };
 
 /// The core server component for handling connections.
@@ -243,10 +244,9 @@ where
             let mut service = service;
             while let Some(request) = request_rx.recv().await {
                 let response = service.call(request).await?;
-                let Some(response_datapack) = response.data else {
-                    continue;
-                };
-                writer_tx.send(response_datapack)?;
+                for response_datapack in response.data {
+                    writer_tx.send(response_datapack)?;
+                }
             }
             Ok(())
         });
@@ -288,6 +288,49 @@ impl Client {
             .send(datapack.into())
             .map_err(|err| PostError::ChannelClosed(err.0))?;
         Ok(guard)
+    }
+
+    /// Sends a request to the server and returns a future for the response.
+    ///
+    /// This method sends a `RequestDataPack` to the server and returns a
+    /// `ReceiverGuard`. The `ReceiverGuard` is a future that resolves to
+    /// the `DataPack` response from the server.
+    ///
+    /// # Arguments
+    ///
+    /// * `datapack` - The request data to send. This can be any type that
+    ///   converts into a `RequestDataPack`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `Err(DataPack)` if the connection to the server is closed
+    /// before the request can be sent. The `DataPack` inside the `Err` is
+    /// the original request that failed to be sent.
+    ///
+    /// # Panics
+    ///
+    /// This method panics if there is a `Ulid` conflict for the request's
+    /// correlation ID. This is extremely unlikely to happen in practice.
+    #[allow(clippy::result_large_err)]
+    pub fn post_typed<T: TypedRequest + Into<RequestDataPack>>(
+        &self,
+        datapack: T,
+    ) -> Result<
+        Map<
+            ReceiverGuard<Ulid, DataPack>,
+            impl FnOnce(
+                Result<DataPack, oneshot::error::RecvError>,
+            ) -> Result<<T as TypedRequest>::Response, PostError>,
+        >,
+        PostError,
+    > {
+        let result = self.post(datapack);
+        result.map(|fut| {
+            fut.map(|rs| match rs {
+                Err(err) => Err(err.into()),
+                Ok(dp) => Ok(dp.payload::<T::Response>()?),
+            })
+        })
     }
 
     /// Sends a request to the server without waiting for a response.
@@ -382,6 +425,9 @@ pub enum ServerError {
     /// An error occurred while waiting for a response on a one-shot channel.
     #[error("Oneshot receive error")]
     OneshotRecvError(#[from] tokio::sync::oneshot::error::RecvError),
+    /// An error occurred during deserialization.
+    #[error("Deserialize error: {0}")]
+    DeserializeError(String),
 }
 
 impl<T> From<SendError<T>> for ServerError {

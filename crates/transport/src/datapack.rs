@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use either::Either;
 use serde::{Deserialize, Serialize};
@@ -177,14 +179,14 @@ impl Default for RequestDataPack {
 
 impl RequestDataPack {
     #[must_use]
-    pub fn bot_id(mut self, bot_id: impl Into<String>) -> Self {
-        self.bot_id = Some(bot_id.into());
+    pub fn bot_id(mut self, bot_id: impl Display) -> Self {
+        self.bot_id = Some(bot_id.to_string());
         self
     }
 
     #[must_use]
-    pub fn path(mut self, path: impl Into<String>) -> Self {
-        self.path = path.into();
+    pub fn path(mut self, path: impl Display) -> Self {
+        self.path = path.to_string();
         self
     }
 
@@ -219,6 +221,18 @@ impl RequestDataPack {
     pub const fn correlation(&self) -> Ulid {
         self.correlation
     }
+
+    #[must_use]
+    pub fn link(mut self, other: &Self) -> Self {
+        if self.bot_id.is_none() {
+            self.bot_id.clone_from(&other.bot_id);
+        }
+        if self.channel.is_none() {
+            self.channel.clone_from(&other.channel);
+        }
+        self.correlation = other.correlation();
+        self
+    }
 }
 
 /// Represents the result of a data operation, either a payload or an error.
@@ -252,7 +266,7 @@ impl From<DataResult> for Result<rmpv::Value, String> {
 impl<P, E> From<Result<P, E>> for DataResult
 where
     P: Into<rmpv::Value>,
-    E: ToString,
+    E: Display,
 {
     fn from(value: Result<P, E>) -> Self {
         match value {
@@ -295,14 +309,14 @@ impl DataPackBuilder {
 
     /// Sets the `bot_id` field for the `DataPack`.
     #[must_use]
-    pub fn bot_id(mut self, id: impl Into<String>) -> Self {
-        self.bot_id = Some(id.into());
+    pub fn bot_id(mut self, id: impl Display) -> Self {
+        self.bot_id = Some(id.to_string());
         self
     }
 
     /// Sets the `path` field for the `DataPack`.
     #[must_use]
-    pub fn path(mut self, path: &impl ToString) -> Self {
+    pub fn path(mut self, path: impl Display) -> Self {
         self.path = Some(path.to_string());
         self
     }
@@ -364,7 +378,7 @@ impl DataPackBuilder {
                 self.result = Some(DataResult::Payload(payload));
             }
             Err(err) => {
-                return self.error(&err);
+                return self.error(err);
             }
         }
         self
@@ -372,7 +386,7 @@ impl DataPackBuilder {
 
     /// Sets the `result` field to an `Error` variant.
     #[must_use]
-    pub fn error(mut self, error: &impl ToString) -> Self {
+    pub fn error(mut self, error: impl Display) -> Self {
         self.result = Some(DataResult::Error(error.to_string()));
         self
     }
@@ -386,7 +400,7 @@ impl DataPackBuilder {
                 self.result = Some(DataResult::Payload(payload));
             }
             Err(err) => {
-                return self.error(&err).build();
+                return self.error(err).build();
             }
         }
         self.build()
@@ -394,7 +408,7 @@ impl DataPackBuilder {
 
     /// Builds a `DataPack` with an `Error` result.
     #[must_use]
-    pub fn build_with_error(self, error: &impl ToString) -> DataPack {
+    pub fn build_with_error(self, error: impl Display) -> DataPack {
         self.error(error).build()
     }
 }
@@ -403,6 +417,18 @@ impl DataPack {
     #[must_use]
     pub const fn builder() -> DataPackBuilder {
         DataPackBuilder::new()
+    }
+
+    #[must_use]
+    pub fn link(mut self, other: &Self) -> Self {
+        if self.bot_id.is_none() {
+            self.bot_id.clone_from(&other.bot_id);
+        }
+        if self.channel.is_none() {
+            self.channel.clone_from(&other.channel);
+        }
+        self.correlate(other.correlation());
+        self
     }
 
     /// # Errors

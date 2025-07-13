@@ -21,17 +21,11 @@ impl Log {
 
 pub mod command {
     use sithra_server::typed;
-    use sithra_transport::datapack::RequestDataPack;
 
     use super::Log;
-    use crate::into_response;
+    use crate::{into_request, into_response};
 
     typed!("/log.create" => impl Log);
     into_response!("/log.create", Log);
-
-    impl From<Log> for RequestDataPack {
-        fn from(value: Log) -> Self {
-            Self::default().payload(value).path("/log.create")
-        }
-    }
+    into_request!("/log.create", Log);
 }

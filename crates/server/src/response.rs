@@ -1,5 +1,6 @@
 use std::{
     convert::Infallible,
+    fmt::Display,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -11,20 +12,21 @@ use sithra_transport::{
     channel::Channel,
     datapack::{DataPack, RequestDataPack},
 };
+use smallvec::SmallVec;
 use tower::Service;
 use ulid::Ulid;
 
 use crate::{extract::payload::Payload, request::Request};
 
 pub struct Response {
-    pub data: Option<DataPack>,
+    pub data: SmallVec<[DataPack; 1]>,
 }
 
-pub struct Error<E: ToString>(E);
+pub struct Error<E: Display>(E);
 
 impl<S> From<S> for Error<S>
 where
-    S: ToString,
+    S: Display,
 {
     fn from(value: S) -> Self {
         Self(value)
@@ -35,41 +37,43 @@ impl Response {
     #[must_use]
     pub fn new(data: impl Into<DataPack>) -> Self {
         Self {
-            data: Some(data.into()),
+            data: SmallVec::from([data.into()]),
         }
     }
 
     #[must_use]
-    pub const fn none() -> Self {
-        Self { data: None }
+    pub fn none() -> Self {
+        Self {
+            data: SmallVec::new(),
+        }
     }
 
     #[must_use]
-    pub const fn is_none(&self) -> bool {
-        self.data.is_none()
+    pub fn is_none(&self) -> bool {
+        self.data.is_empty()
     }
 
-    pub const fn correlate(&mut self, id: Ulid) {
-        if let Some(data) = self.data.as_mut() {
+    pub fn correlate(&mut self, id: Ulid) {
+        for data in &mut self.data {
             data.correlate(id);
         }
     }
 
-    pub fn set_bot_id(&mut self, bot_id: &impl ToString) {
-        if let Some(data) = self.data.as_mut() {
+    pub fn set_bot_id(&mut self, bot_id: impl Display) {
+        for data in &mut self.data {
             data.bot_id = Some(bot_id.to_string());
         }
     }
 
-    pub fn set_channel(&mut self, channel: Channel) {
-        if let Some(data) = self.data.as_mut() {
-            data.channel = Some(channel);
+    pub fn set_channel(&mut self, channel: &Channel) {
+        for data in &mut self.data {
+            data.channel = Some(channel.clone());
         }
     }
 
-    pub fn error(error: &impl ToString) -> Self {
+    pub fn error(error: impl Display) -> Self {
         Self {
-            data: Some(DataPack::builder().build_with_error(error)),
+            data: SmallVec::from([DataPack::builder().build_with_error(error)]),
         }
     }
 }
@@ -86,6 +90,36 @@ impl IntoResponse for Response {
     }
 }
 
+impl<const N: usize, R: IntoResponse> IntoResponse for [R; N] {
+    fn into_response(self) -> Response {
+        let mut result = SmallVec::new();
+        for response in self {
+            result.append(&mut response.into_response().data);
+        }
+        Response { data: result }
+    }
+}
+
+impl<const N: usize, R: IntoResponse> IntoResponse for SmallVec<[R; N]> {
+    fn into_response(self) -> Response {
+        let mut result = SmallVec::new();
+        for response in self {
+            result.append(&mut response.into_response().data);
+        }
+        Response { data: result }
+    }
+}
+
+impl<R: IntoResponse> IntoResponse for Vec<R> {
+    fn into_response(self) -> Response {
+        let mut result = SmallVec::new();
+        for response in self {
+            result.append(&mut response.into_response().data);
+        }
+        Response { data: result }
+    }
+}
+
 impl IntoResponse for RequestDataPack {
     fn into_response(self) -> Response {
         Response::new(self)
@@ -94,14 +128,16 @@ impl IntoResponse for RequestDataPack {
 
 impl IntoResponse for () {
     fn into_response(self) -> Response {
-        Response { data: None }
+        Response {
+            data: SmallVec::new(),
+        }
     }
 }
 
 impl<R: IntoResponse> IntoResponse for Option<R> {
     fn into_response(self) -> Response {
         Response {
-            data: self.and_then(|v| v.into_response().data),
+            data: self.map_or_else(SmallVec::new, |v| v.into_response().data),
         }
     }
 }
@@ -114,28 +150,30 @@ impl IntoResponse for Infallible {
 
 impl IntoResponse for DataPack {
     fn into_response(self) -> Response {
-        Response { data: Some(self) }
+        Response {
+            data: SmallVec::from([self]),
+        }
     }
 }
 
 impl<S> IntoResponse for Error<S>
 where
-    S: ToString,
+    S: Display,
 {
     fn into_response(self) -> Response {
-        Response::error(&self.0)
+        Response::error(self.0)
     }
 }
 
 impl<V, E> IntoResponse for Result<V, E>
 where
     V: IntoResponse,
-    E: ToString,
+    E: Display,
 {
     fn into_response(self) -> Response {
         match self {
             Ok(value) => value.into_response(),
-            Err(error) => Response::error(&error),
+            Err(error) => Response::error(error),
         }
     }
 }
@@ -145,7 +183,7 @@ impl<V: Serialize> IntoResponse for Payload<V> {
         let Self(payload) = self;
         let value = rmpv::ext::to_value(payload);
         let Ok(value) = value else {
-            return Response::error(&"Failed to serialize payload");
+            return Response::error("Failed to serialize payload");
         };
         DataPack::builder().build_with_payload(value).into_response()
     }

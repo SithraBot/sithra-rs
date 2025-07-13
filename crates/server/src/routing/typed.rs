@@ -100,12 +100,12 @@ macro_rules! on {
 #[cfg(feature = "macros")]
 #[macro_export]
 macro_rules! router {
-    { $router:expr => $($typed:ty[$($handler:expr$(;$st:ty)?),*]),* } => {
+    { $router:expr => $($typed:ty[$($handler:expr),*$(,)?]),*$(,)? } => {
         ($router)
         $(.route(
             <$typed>::path(),
             $crate::multi(
-                [$(<$typed>::__on$(::<_, _, $st>)?($handler),)*]
+                [$(<$typed>::__on($handler),)*]
             )
         ))*
     }

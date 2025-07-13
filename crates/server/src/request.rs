@@ -22,6 +22,11 @@ impl From<Arc<RequestDataPack>> for Request {
 
 impl Request {
     #[must_use]
+    pub fn raw(&self) -> &RequestDataPack {
+        &self.data
+    }
+
+    #[must_use]
     pub fn correlation(&self) -> Ulid {
         self.data.correlation()
     }

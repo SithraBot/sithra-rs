@@ -131,10 +131,10 @@ impl<E> Future for RouteFuture<E> {
                 let mut res = ready!(this.inner.poll(cx))?;
                 res.correlate(*this.correlation);
                 if let Some(channel) = this.channel.take() {
-                    res.set_channel(channel);
+                    res.set_channel(&channel);
                 }
                 if let Some(bot_id) = this.bot_id.take() {
-                    res.set_bot_id(&bot_id);
+                    res.set_bot_id(bot_id);
                 }
                 Poll::Ready(Ok(res))
             }

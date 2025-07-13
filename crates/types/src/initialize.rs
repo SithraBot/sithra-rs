@@ -1,13 +1,19 @@
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
 pub struct Initialize<C> {
-    pub config: C,
+    pub config:    C,
+    pub data_path: String,
 }
 
 impl<C> Initialize<C> {
-    pub const fn new(config: C) -> Self {
-        Self { config }
+    pub fn new<D: Display>(config: C, data_path: D) -> Self {
+        Self {
+            config,
+            data_path: data_path.to_string(),
+        }
     }
 }
 
@@ -19,8 +25,8 @@ where
     /// Returns an error if the provided value cannot be deserialized into the
     /// config type.
     pub fn from_value(value: rmpv::Value) -> Result<Self, rmpv::ext::Error> {
-        let config = rmpv::ext::from_value(value)?;
-        Ok(Self { config })
+        let this = rmpv::ext::from_value(value)?;
+        Ok(this)
     }
 }
 

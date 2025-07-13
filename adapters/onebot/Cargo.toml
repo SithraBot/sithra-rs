@@ -10,11 +10,17 @@ futures-util.workspace = true
 tokio.workspace = true
 triomphe.workspace = true
 tokio-tungstenite = "0.27"
+thiserror.workspace = true
 once_cell.workspace = true
 rmpv.workspace = true
-serde_json = "1.0.140"
+serde_json = "1"
+serde_with = "3"
 log.workspace = true
 ulid.workspace = true
+hyper = { version = "1", features = ["full"] }
+fastrand = "2"
+url = "2"
+base64 = "0.22"
 
 [lints]
 workspace = true
