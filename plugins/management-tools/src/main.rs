@@ -7,15 +7,19 @@ use serde::Deserialize;
 use sithra_kit::{
     plugin::Plugin,
     server::{
-        extract::context::{Clientful, Context},
+        extract::{
+            context::{Clientful, Context},
+            payload::Payload,
+        },
+        router,
         server::Client,
     },
     transport::channel::Channel,
     types::{
-        channel::SetMute,
+        channel::ContextExt as _,
         initialize::Initialize,
         message::{Message, SendMessage, common::CommonSegment as H},
-        msg,
+        smsg,
     },
 };
 use triomphe::Arc;
@@ -49,7 +53,12 @@ async fn main() {
         client,
     };
 
-    let plugin = plugin.map(move |r| r.route_typed(Message::on(mute)).with_state(state));
+    let plugin = plugin.map(move |r| {
+        router! {r =>
+            Message[channelinfo, mute]
+        }
+        .with_state(state)
+    });
 
     log::info!("Management Tools plugin started");
 
@@ -65,47 +74,65 @@ macro_rules! tap_err {
             Ok(ok) => ok,
             Err(err) => {
                 log::error!(concat!("Failed to ", $action, ": {:?}"), err);
-                return Some(msg!(H[text: concat!($action, "失败喵，请通过错误日志查看具体信息喵")]).into());
+                return Some(smsg!(concat!($action, "失败喵，请通过错误日志查看具体信息喵")).into());
             }
         }
     };
 }
 
-async fn mute(ctx: Context<Message<H>, AppState>, mut channel: Channel) -> Option<SendMessage> {
+async fn channelinfo(Payload(msg): Payload<Message<H>>, channel: Channel) -> Option<SendMessage> {
+    match msg.content.as_slice() {
+        [H::Text(text)] if text.trim() == "channelinfo" => {}
+        _ => {
+            return None;
+        }
+    }
+    let Channel {
+        id,
+        ty,
+        name,
+        parent_id,
+        self_id: _,
+    } = channel;
+    let info = format!(
+        "频道ID: {}\n频道类型: {}\n频道名称: {}\n父频道ID: {}",
+        id,
+        ty,
+        name,
+        parent_id.unwrap_or_else(|| "无".to_owned()),
+    );
+    Some(smsg!(info))
+}
+
+async fn mute(ctx: Context<Message<H>, AppState>) -> Option<SendMessage> {
     let args = parse_cmd(&ctx.content);
+    let channel = ctx.request.channel()?;
     let (id, duration) = match args {
         Ok(ok) => ok,
-        Err(ParseErr::InvalidNumber) => return Some(msg!(H[text: "无效的数字喵"]).into()),
+        Err(ParseErr::InvalidNumber) => return Some(smsg!("无效的数字喵")),
         Err(ParseErr::NotEnoughArgs) => {
-            return Some(msg!(H[text: "需要俩参数喵，用户ID和时长喵"]).into());
+            return Some(smsg!("需要俩参数喵，用户ID和时长喵"));
         }
         Err(ParseErr::NotMatch) => return None,
     };
 
     if channel.parent_id.is_none() {
-        return Some(msg!(H[text: "只能在群聊中使用喵"]).into());
+        return Some(smsg!("只能在群聊中使用喵"));
     }
 
     if !auth(&channel.id, &ctx.state.admins) {
-        return Some(msg!(H[text: "你没有权限喵"]).into());
+        return Some(smsg!("你没有权限喵"));
     }
 
     let is_unmute = duration.is_zero();
 
-    id.clone_into(&mut channel.id);
-
-    let set_mute = SetMute { channel, duration };
-    let res = ctx.post(set_mute);
-    let res = tap_err!(res, "禁言").await;
+    let res = ctx.set_mute_member(id, duration).await;
     tap_err!(res, "禁言");
-    Some(
-        msg!(H [
-            text: if is_unmute {"解禁成功喵 "} else {"禁言成功喵 "},
-            at: id,
-            text: if is_unmute {" 😎堂堂复活喵"} else {" 💀"},
-        ])
-        .into(),
-    )
+    Some(smsg!(H [
+        text: if is_unmute {"解禁成功喵 "} else {"禁言成功喵 "},
+        at: id,
+        text: if is_unmute {" 😎堂堂复活喵"} else {" 💀"},
+    ]))
 }
 
 fn auth(user: &String, admins: &[String]) -> bool {

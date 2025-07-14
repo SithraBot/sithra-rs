@@ -181,7 +181,7 @@ where
 impl<V: Serialize> IntoResponse for Payload<V> {
     fn into_response(self) -> Response {
         let Self(payload) = self;
-        let value = rmpv::ext::to_value(payload);
+        let value = sithra_transport::to_value(payload);
         let Ok(value) = value else {
             return Response::error("Failed to serialize payload");
         };

@@ -3,19 +3,19 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use futures_util::{FutureExt, future::Map};
+use futures_util::FutureExt;
 use serde::Deserialize;
-use sithra_transport::datapack::{DataPack, RequestDataPack};
-use tokio::sync::oneshot;
+use sithra_transport::{
+    ValueError,
+    datapack::{DataPack, RequestDataPack},
+};
 use triomphe::Arc;
-use ulid::Ulid;
 
 use crate::{
     extract::FromRequest,
     request::Request,
     response::Error,
     server::{Client, PostError},
-    shared::ReceiverGuard,
     traits::{FromRef, TypedRequest},
 };
 
@@ -64,7 +64,7 @@ where
     OuterState: Send + Sync,
     T: for<'de> Deserialize<'de>,
 {
-    type Rejection = Error<rmpv::ext::Error>;
+    type Rejection = Error<ValueError>;
 
     async fn from_request(
         parts: Arc<RequestDataPack>,
@@ -103,8 +103,8 @@ where
 
 impl<T, S> Context<T, S>
 where
-    T: for<'de> Deserialize<'de>,
-    S: Clientful,
+    T: for<'de> Deserialize<'de> + Send + Sync,
+    S: Clientful + Send + Sync,
 {
     /// Sends a request to the server and returns a future for the response.
     ///
@@ -128,27 +128,21 @@ where
     /// This method panics if there is a `Ulid` conflict for the request's
     /// correlation ID. This is extremely unlikely to happen in practice.
     #[allow(clippy::result_large_err)]
-    pub fn post<TR: TypedRequest + Into<RequestDataPack>>(
+    pub async fn post<TR: TypedRequest + Into<RequestDataPack> + Send + Sync>(
         &self,
         datapack: TR,
-    ) -> Result<
-        Map<
-            ReceiverGuard<Ulid, DataPack>,
-            impl FnOnce(
-                Result<DataPack, oneshot::error::RecvError>,
-            ) -> Result<<TR as TypedRequest>::Response, PostError>,
-        >,
-        PostError,
-    > {
+    ) -> Result<TR::Response, PostError> {
         let datapack: RequestDataPack = datapack.into();
         let datapack = datapack.link(self.request.raw());
         let result = self.state.client().post(datapack);
-        result.map(|fut| {
-            fut.map(|rs| match rs {
-                Err(err) => Err(err.into()),
-                Ok(dp) => Ok(dp.payload::<TR::Response>()?),
-            })
-        })
+        result
+            .map(|fut| {
+                fut.map(|rs| match rs {
+                    Err(err) => Err(err.into()),
+                    Ok(dp) => Ok(dp.payload::<TR::Response>()?),
+                })
+            })?
+            .await
     }
 
     /// Sends a request to the server and returns a future for the response.
@@ -173,12 +167,12 @@ where
     /// This method panics if there is a `Ulid` conflict for the request's
     /// correlation ID. This is extremely unlikely to happen in practice.
     #[allow(clippy::result_large_err)]
-    pub fn post_raw(
+    pub async fn post_raw(
         &self,
-        datapack: impl Into<RequestDataPack>,
-    ) -> Result<ReceiverGuard<Ulid, DataPack>, PostError> {
+        datapack: impl Into<RequestDataPack> + Send + Sync,
+    ) -> Result<DataPack, PostError> {
         let datapack: RequestDataPack = datapack.into();
         let datapack = datapack.link(self.request.raw());
-        self.state.client().post(datapack)
+        self.state.client().post(datapack)?.await.map_err(PostError::RecvError)
     }
 }

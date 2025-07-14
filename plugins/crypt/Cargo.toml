@@ -1,5 +1,5 @@
 [package]
-name = "echo"
+name = "crypt"
 version = "0.1.0"
 edition.workspace = true
 
@@ -7,6 +7,8 @@ edition.workspace = true
 sithra-kit.workspace = true
 tokio.workspace = true
 log.workspace = true
+serde.workspace = true
+thiserror.workspace = true
 
 [lints]
 workspace = true

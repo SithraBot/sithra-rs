@@ -1,5 +1,5 @@
 [package]
-name = "echo"
+name = "dice"
 version = "0.1.0"
 edition.workspace = true
 
@@ -7,6 +7,9 @@ edition.workspace = true
 sithra-kit.workspace = true
 tokio.workspace = true
 log.workspace = true
+thiserror.workspace = true
+nom = "8"
+fastrand = "2"
 
 [lints]
 workspace = true

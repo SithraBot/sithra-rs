@@ -2,7 +2,6 @@ mod macros;
 
 #[doc(hidden)]
 pub mod __private {
-    pub use rmpv;
     pub use sithra_server;
     pub use sithra_transport;
 }

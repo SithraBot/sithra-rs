@@ -1,17 +1,20 @@
 use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
+use sithra_transport::{Value, ValueError};
 
 #[derive(Deserialize, Serialize)]
 pub struct Initialize<C> {
     pub config:    C,
+    pub id:        String,
     pub data_path: String,
 }
 
 impl<C> Initialize<C> {
-    pub fn new<D: Display>(config: C, data_path: D) -> Self {
+    pub fn new<D1: Display, D2: Display>(config: C, name: D1, data_path: D2) -> Self {
         Self {
             config,
+            id: name.to_string(),
             data_path: data_path.to_string(),
         }
     }
@@ -24,8 +27,8 @@ where
     /// # Errors
     /// Returns an error if the provided value cannot be deserialized into the
     /// config type.
-    pub fn from_value(value: rmpv::Value) -> Result<Self, rmpv::ext::Error> {
-        let this = rmpv::ext::from_value(value)?;
+    pub fn from_value(value: Value) -> Result<Self, ValueError> {
+        let this = sithra_transport::from_value(value)?;
         Ok(this)
     }
 }

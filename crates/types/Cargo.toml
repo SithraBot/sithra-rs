@@ -6,13 +6,13 @@ edition.workspace = true
 [dependencies]
 serde.workspace = true
 typeshare.workspace = true
+thiserror.workspace = true
 
 # Workspace dependencies
 
 sithra-server.workspace = true
 sithra-transport.workspace = true
 smallvec.workspace = true
-rmpv.workspace = true
 log.workspace = true
 
 [dev-dependencies]

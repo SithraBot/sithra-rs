@@ -127,7 +127,7 @@ impl Default for DataPack {
             path:        None,
             correlation: Ulid::new(),
             channel:     None,
-            result:      DataResult::Payload(rmpv::Value::Nil),
+            result:      DataResult::Payload(crate::Value::Null),
         }
     }
 }
@@ -155,13 +155,13 @@ impl From<RequestDataPack> for DataPack {
 ///
 /// Used for initiating requests between peers, with optional channel
 /// metadata and a correlation ID for tracking.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct RequestDataPack {
     pub bot_id:  Option<String>,
     pub path:    String,
     correlation: Ulid,
     pub channel: Option<Channel>,
-    pub payload: rmpv::Value,
+    pub payload: crate::Value,
 }
 
 impl Default for RequestDataPack {
@@ -172,7 +172,7 @@ impl Default for RequestDataPack {
             path:        String::new(),
             correlation: Ulid::new(),
             channel:     None,
-            payload:     rmpv::Value::Nil,
+            payload:     crate::Value::Null,
         }
     }
 }
@@ -205,14 +205,14 @@ impl RequestDataPack {
     }
 
     #[must_use]
-    pub fn payload_value(mut self, payload: impl Into<rmpv::Value>) -> Self {
+    pub fn payload_value(mut self, payload: impl Into<crate::Value>) -> Self {
         self.payload = payload.into();
         self
     }
 
     #[must_use]
     pub fn payload<S: Serialize>(mut self, payload: S) -> Self {
-        self.payload = rmpv::ext::to_value(payload).unwrap_or(rmpv::Value::Nil);
+        self.payload = crate::to_value(payload).unwrap_or(crate::Value::Null);
         self
     }
 
@@ -240,7 +240,7 @@ impl RequestDataPack {
 pub enum DataResult {
     /// Successful operation with a payload value.
     #[serde(rename = "payload")]
-    Payload(rmpv::Value),
+    Payload(crate::Value),
     /// Failed operation with an error message.
     #[serde(rename = "error")]
     Error(String),
@@ -250,7 +250,7 @@ pub enum DataResult {
 ///
 /// - `Payload(v)` becomes `Ok(v)`
 /// - `Error(e)` becomes `Err(e)`
-impl From<DataResult> for Result<rmpv::Value, String> {
+impl From<DataResult> for Result<crate::Value, String> {
     fn from(value: DataResult) -> Self {
         match value {
             DataResult::Payload(v) => Ok(v),
@@ -265,7 +265,7 @@ impl From<DataResult> for Result<rmpv::Value, String> {
 /// - `Err(error)` becomes `Error(error.to_string())`
 impl<P, E> From<Result<P, E>> for DataResult
 where
-    P: Into<rmpv::Value>,
+    P: Into<crate::Value>,
     E: Display,
 {
     fn from(value: Result<P, E>) -> Self {
@@ -345,7 +345,7 @@ impl DataPackBuilder {
     ///
     /// Defaults:
     /// - `correlation`: A new `Ulid` if not set.
-    /// - `result`: `DataResult::Payload(rmpv::Value::Nil)` if not set.
+    /// - `result`: `DataResult::Payload(crate::Value::Null)` if not set.
     #[must_use]
     pub fn build(self) -> DataPack {
         let Self {
@@ -358,7 +358,7 @@ impl DataPackBuilder {
 
         let correlation = correlation.unwrap_or_else(Ulid::new);
 
-        let result = result.unwrap_or(DataResult::Payload(rmpv::Value::Nil));
+        let result = result.unwrap_or(DataResult::Payload(crate::Value::Null));
 
         DataPack {
             bot_id,
@@ -372,7 +372,7 @@ impl DataPackBuilder {
     /// Sets the `result` field to a `Payload` variant.
     #[must_use]
     pub fn payload(mut self, payload: impl Serialize) -> Self {
-        let payload = rmpv::ext::to_value(payload);
+        let payload = crate::to_value(payload);
         match payload {
             Ok(payload) => {
                 self.result = Some(DataResult::Payload(payload));
@@ -394,7 +394,7 @@ impl DataPackBuilder {
     /// Builds a `DataPack` with a `Payload` result.
     #[must_use]
     pub fn build_with_payload(mut self, payload: impl Serialize) -> DataPack {
-        let payload = rmpv::ext::to_value(payload);
+        let payload = crate::to_value(payload);
         match payload {
             Ok(payload) => {
                 self.result = Some(DataResult::Payload(payload));
@@ -438,7 +438,7 @@ impl DataPack {
             DataResult::Error(err) => return Err(err.clone()),
             DataResult::Payload(payload) => payload.clone(),
         };
-        rmpv::ext::from_value(payload).map_err(|err| format!("{err}"))
+        crate::from_value(payload).map_err(|err| format!("{err}"))
     }
 
     /// Deserialize a `DataPack` from a byte slice.
@@ -517,7 +517,7 @@ impl DataPack {
             path: path.unwrap_or_default(),
             correlation,
             channel,
-            payload: payload.unwrap_or(rmpv::Value::Nil),
+            payload: payload.unwrap_or(crate::Value::Null),
         }
     }
 }

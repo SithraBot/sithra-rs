@@ -27,6 +27,18 @@ pub struct Channel {
     pub self_id:   Option<String>,
 }
 
+impl Default for Channel {
+    fn default() -> Self {
+        Self {
+            id:        String::new(),
+            ty:        ChannelType::Private,
+            name:      String::new(),
+            parent_id: None,
+            self_id:   None,
+        }
+    }
+}
+
 impl Channel {
     /// Creates a new private channel.
     ///
@@ -140,4 +152,14 @@ pub enum ChannelType {
     Direct,
     /// A private channel, used for restricted or hidden conversations.
     Private,
+}
+
+impl Display for ChannelType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Group => write!(f, "group"),
+            Self::Direct => write!(f, "direct"),
+            Self::Private => write!(f, "private"),
+        }
+    }
 }

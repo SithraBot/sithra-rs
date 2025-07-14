@@ -5,11 +5,11 @@ use sithra_server::{
     extract::context::{Clientful, Context},
     server::PostError,
 };
-use sithra_transport::{channel::Channel, datapack::RequestDataPack};
+use sithra_transport::{Value, ValueError, channel::Channel, datapack::RequestDataPack};
 use smallvec::SmallVec;
 use typeshare::typeshare;
 
-pub const NIL: rmpv::Value = rmpv::Value::Nil;
+pub const NIL: sithra_transport::Value = sithra_transport::Value::Null;
 
 pub type Segments<Seg> = SmallVec<[Seg; 1]>;
 
@@ -27,7 +27,7 @@ pub struct Segment {
     #[serde(rename = "type")]
     pub ty:   String,
     #[typeshare(serialized_as = "any")]
-    pub data: rmpv::Value,
+    pub data: Value,
 }
 
 impl Segment {
@@ -57,10 +57,10 @@ impl Segment {
     }
 
     /// # Errors
-    pub fn custom<T: Display, V: Serialize>(ty: T, data: V) -> Result<Self, rmpv::ext::Error> {
+    pub fn custom<T: Display, V: Serialize>(ty: T, data: V) -> Result<Self, ValueError> {
         Ok(Self {
             ty:   ty.to_string(),
-            data: rmpv::ext::to_value(data)?,
+            data: sithra_transport::to_value(data)?,
         })
     }
 }
@@ -88,6 +88,16 @@ macro_rules! msg {
     };
 }
 
+#[macro_export]
+macro_rules! smsg {
+    ($seg:ident[$($segment:ident$(: $value:expr)?),*$(,)?]) => {
+        $crate::message::SendMessage::from($crate::msg!($seg[$($segment$(: $value)?),*]))
+    };
+    ($seg:expr) => {
+       $crate::message::SendMessage::from($seg)
+    }
+}
+
 #[typeshare]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SendMessage<Seg = Segment> {
@@ -104,10 +114,18 @@ impl SendMessage {
     }
 }
 
-impl<Seg: Into<Segment>> From<SmallVec<[Seg; 1]>> for SendMessage {
+// impl<Seg: Into<Segment>> From<SmallVec<[Seg; 1]>> for SendMessage {
+//     fn from(content: SmallVec<[Seg; 1]>) -> Self {
+//         Self {
+//             content: content.into_iter().map(Into::into).collect(),
+//         }
+//     }
+// }
+
+impl<Seg: TryInto<Segment>> From<SmallVec<[Seg; 1]>> for SendMessage {
     fn from(content: SmallVec<[Seg; 1]>) -> Self {
         Self {
-            content: content.into_iter().map(Into::into).collect(),
+            content: content.into_iter().filter_map(|seg| seg.try_into().ok()).collect(),
         }
     }
 }
@@ -128,19 +146,31 @@ impl From<&str> for SendMessage {
     }
 }
 
+impl<D1: Display, D2: Display> From<Result<D1, D2>> for SendMessage {
+    fn from(value: Result<D1, D2>) -> Self {
+        let content = match value {
+            Ok(content) => content.to_string(),
+            Err(err) => err.to_string(),
+        };
+        Self {
+            content: SmallVec::from([content.into()]),
+        }
+    }
+}
+
 pub trait ContextExt {
     fn reply(
         &self,
-        msg: impl Into<SendMessage> + Send + Sync,
-    ) -> impl Future<Output = Result<Message, PostError>> + Send + Sync;
+        msg: impl Into<SendMessage>,
+    ) -> impl Future<Output = Result<Message, PostError>>;
 }
 
-impl<S, Seg> ContextExt for Context<Message<Seg>, S>
+impl<S, T> ContextExt for Context<T, S>
 where
     S: Clientful + Send + Sync,
-    Seg: for<'de> Deserialize<'de> + Send + Sync,
+    T: for<'de> Deserialize<'de> + Send + Sync,
 {
-    async fn reply(&self, msg: impl Into<SendMessage> + Send + Sync) -> Result<Message, PostError> {
+    async fn reply(&self, msg: impl Into<SendMessage>) -> Result<Message, PostError> {
         let datapack = self
             .client()
             .post(
@@ -213,6 +243,7 @@ pub mod common {
 
     use de::Error as _;
     use serde::{Deserialize, Serialize, de};
+    use sithra_transport::ValueError;
 
     use crate::message::Segment;
 
@@ -251,14 +282,14 @@ pub mod common {
     }
 
     impl TryFrom<Segment> for CommonSegment {
-        type Error = rmpv::ext::Error;
+        type Error = ValueError;
 
         fn try_from(value: Segment) -> Result<Self, Self::Error> {
             let Segment { ty, data } = value;
             match ty.as_str() {
-                "text" => Ok(Self::Text(rmpv::ext::from_value(data)?)),
-                "image" => Ok(Self::Image(rmpv::ext::from_value(data)?)),
-                "at" => Ok(Self::At(rmpv::ext::from_value(data)?)),
+                "text" => Ok(Self::Text(sithra_transport::from_value(data)?)),
+                "image" => Ok(Self::Image(sithra_transport::from_value(data)?)),
+                "at" => Ok(Self::At(sithra_transport::from_value(data)?)),
                 _ => Ok(Self::Unknown(Segment { ty, data })),
             }
         }

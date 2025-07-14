@@ -1,7 +1,7 @@
 use std::ops::{Deref, DerefMut};
 
 use serde::de::DeserializeOwned;
-use sithra_transport::datapack::RequestDataPack;
+use sithra_transport::{datapack::RequestDataPack, Value, ValueError};
 use triomphe::Arc;
 
 use crate::{extract::FromRequest, response};
@@ -24,8 +24,8 @@ impl<T> From<T> for Payload<T> {
 impl<T: DeserializeOwned> Payload<T> {
     /// # Errors
     /// Returns an error if the value cannot be deserialized.
-    pub fn from_value(value: &rmpv::Value) -> Result<Self, rmpv::ext::Error> {
-        Ok(Self(rmpv::ext::from_value(value.clone())?))
+    pub fn from_value(value: &Value) -> Result<Self, ValueError> {
+        Ok(Self(sithra_transport::from_value(value.clone())?))
     }
 }
 
@@ -34,7 +34,7 @@ where
     T: DeserializeOwned,
     S: Send + Sync,
 {
-    type Rejection = response::Error<rmpv::ext::Error>;
+    type Rejection = response::Error<ValueError>;
 
     async fn from_request(req: Arc<RequestDataPack>, _: &S) -> Result<Self, Self::Rejection> {
         Ok(Self::from_value(&req.payload)?)

@@ -1,5 +1,5 @@
 use serde::Deserialize;
-use sithra_transport::{channel::Channel, datapack::RequestDataPack};
+use sithra_transport::{channel::Channel, datapack::RequestDataPack, ValueError};
 use triomphe::Arc;
 use ulid::Ulid;
 
@@ -60,8 +60,8 @@ impl Request {
 
     /// # Errors
     /// Returns an error if the payload cannot be deserialized.
-    pub fn payload<T: for<'de> Deserialize<'de>>(&self) -> Result<T, rmpv::ext::Error> {
-        rmpv::ext::from_value(self.data.payload.clone())
+    pub fn payload<T: for<'de> Deserialize<'de>>(&self) -> Result<T, ValueError> {
+        sithra_transport::from_value(self.data.payload.clone())
     }
 
     #[must_use]
