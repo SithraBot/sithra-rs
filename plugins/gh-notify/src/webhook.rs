@@ -6,7 +6,10 @@ use axum::{
 };
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
-use sithra_kit::{transport::datapack::RequestDataPack, types::smsg};
+use sithra_kit::{
+    transport::datapack::RequestDataPack,
+    types::{message::SendMessage, smsg},
+};
 
 use crate::{AppState, event::GithubPushEvent};
 
@@ -66,16 +69,18 @@ pub async fn webhook(
     if event_type == "push" {
         tap_err!(handle_push(state, body).await);
     }
-    
+
     StatusCode::OK
 }
 
 pub async fn handle_push(state: AppState, body: Bytes) -> anyhow::Result<()> {
     let payload: GithubPushEvent = serde_json::from_slice(&body)?;
+    log::debug!("Received push event: {payload:?}");
     let send_msg = smsg!(payload.to_string());
-    let req = RequestDataPack::default().payload(send_msg);
+    let req = RequestDataPack::default().path(SendMessage::path()).payload(send_msg);
     for (channel, bot_id) in state.channels {
         let req = req.clone().bot_id(bot_id).channel(channel);
+        log::debug!("Send Request: {req:?}");
         state.client.post(req)?.await?;
     }
     Ok(())

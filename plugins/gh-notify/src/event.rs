@@ -16,8 +16,10 @@ impl Display for GithubPushEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "由 {} 推送到 {},\n{}",
-            self.sender.login, self.ref_name, self.commits[0].message
+            "由 {} 推送到 {} ;\n提交内容: \n{}",
+            self.sender.login,
+            self.ref_name,
+            self.commits.iter().map(|c| c.message.clone()).collect::<Vec<_>>().join("\n")
         )
     }
 }

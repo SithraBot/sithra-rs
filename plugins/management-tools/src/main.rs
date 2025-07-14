@@ -7,9 +7,14 @@ use serde::Deserialize;
 use sithra_kit::{
     plugin::Plugin,
     server::{
-        extract::context::{Clientful, Context},
+        extract::{
+            context::{Clientful, Context},
+            payload::Payload,
+        },
+        router,
         server::Client,
     },
+    transport::channel::Channel,
     types::{
         channel::ContextExt as _,
         initialize::Initialize,
@@ -48,7 +53,12 @@ async fn main() {
         client,
     };
 
-    let plugin = plugin.map(move |r| r.route_typed(Message::on(mute)).with_state(state));
+    let plugin = plugin.map(move |r| {
+        router! {r =>
+            Message[channelinfo, mute]
+        }
+        .with_state(state)
+    });
 
     log::info!("Management Tools plugin started");
 
@@ -68,6 +78,30 @@ macro_rules! tap_err {
             }
         }
     };
+}
+
+async fn channelinfo(Payload(msg): Payload<Message<H>>, channel: Channel) -> Option<SendMessage> {
+    match msg.content.as_slice() {
+        [H::Text(text)] if text.trim() == "channelinfo" => {}
+        _ => {
+            return None;
+        }
+    }
+    let Channel {
+        id,
+        ty,
+        name,
+        parent_id,
+        self_id: _,
+    } = channel;
+    let info = format!(
+        "频道ID: {}\n频道类型: {}\n频道名称: {}\n父频道ID: {}",
+        id,
+        ty,
+        name,
+        parent_id.unwrap_or_else(|| "无".to_owned()),
+    );
+    Some(smsg!(info))
 }
 
 async fn mute(ctx: Context<Message<H>, AppState>) -> Option<SendMessage> {

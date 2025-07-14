@@ -84,7 +84,7 @@ async fn main() -> anyhow::Result<()> {
 
     let serve = axum::serve(listener, app);
 
-    log::info!("Echo plugin started");
+    log::info!("Github notify plugin started");
     tokio::select! {
         _ = plugin.run().join_all() => {}
         _ = tokio::signal::ctrl_c() => {}

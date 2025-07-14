@@ -153,3 +153,13 @@ pub enum ChannelType {
     /// A private channel, used for restricted or hidden conversations.
     Private,
 }
+
+impl Display for ChannelType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Group => write!(f, "group"),
+            Self::Direct => write!(f, "direct"),
+            Self::Private => write!(f, "private"),
+        }
+    }
+}
