@@ -4,12 +4,16 @@ use de::Error as _;
 use internal::{Contact, InternalOneBotSegment, InternalOneBotTypedSegment, Location, Poke};
 use ser::Error as _;
 use serde::{Deserialize, Serialize, de, ser};
-use sithra_kit::types::message::{NIL, Segment};
+use sithra_kit::{
+    transport::{self, ValueError},
+    types::message::{Segment, NIL},
+};
 
 use crate::message::internal::InternalOneBotUnknownSegment;
 
 pub mod internal {
     use serde::{Deserialize, Serialize, de::Error as _};
+    use sithra_kit::transport::Value;
 
     use crate::util::or_in_base64;
 
@@ -115,7 +119,7 @@ pub mod internal {
     pub struct InternalOneBotUnknownSegment {
         #[serde(default, rename = "type")]
         pub ty:   String,
-        pub data: rmpv::Value,
+        pub data: Value,
     }
 
     #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -142,7 +146,7 @@ pub mod internal {
     pub struct InternalOneBotUnknown {
         #[serde(rename = "type")]
         pub ty:   String,
-        pub data: rmpv::Value,
+        pub data: Value,
     }
 }
 
@@ -257,38 +261,38 @@ impl OneBotSegment {
 }
 
 impl TryFrom<Segment> for OneBotSegment {
-    type Error = rmpv::ext::Error;
+    type Error = ValueError;
 
     fn try_from(value: Segment) -> Result<Self, Self::Error> {
         let Segment { ty, data } = value;
         match ty.as_str() {
             "text" => Ok(Self(InternalOneBotSegment::Typed(
                 InternalOneBotTypedSegment::Text {
-                    text: rmpv::ext::from_value(data)?,
+                    text: transport::from_value(data)?,
                 },
             ))),
             "face" => Ok(Self(InternalOneBotSegment::Typed(
                 InternalOneBotTypedSegment::Face {
-                    id: rmpv::ext::from_value(data)?,
+                    id: transport::from_value(data)?,
                 },
             ))),
             "image" => Ok(Self(InternalOneBotSegment::Typed(
                 InternalOneBotTypedSegment::Image {
-                    file: rmpv::ext::from_value(data)?,
+                    file: transport::from_value(data)?,
                 },
             ))),
             "record" => Ok(Self(InternalOneBotSegment::Typed(
                 InternalOneBotTypedSegment::Record {
-                    file: rmpv::ext::from_value(data)?,
+                    file: transport::from_value(data)?,
                 },
             ))),
             "video" => Ok(Self(InternalOneBotSegment::Typed(
                 InternalOneBotTypedSegment::Video {
-                    file: rmpv::ext::from_value(data)?,
+                    file: transport::from_value(data)?,
                 },
             ))),
             "at" => {
-                let id: String = rmpv::ext::from_value(data)?;
+                let id: String = transport::from_value(data)?;
                 Ok(Self(InternalOneBotSegment::Typed(
                     InternalOneBotTypedSegment::At {
                         id: id.clone(),
@@ -306,17 +310,17 @@ impl TryFrom<Segment> for OneBotSegment {
                 InternalOneBotTypedSegment::Shake,
             ))),
             "poke" => Ok(Self(InternalOneBotSegment::Typed(
-                InternalOneBotTypedSegment::Poke(rmpv::ext::from_value(data)?),
+                InternalOneBotTypedSegment::Poke(transport::from_value(data)?),
             ))),
             "contact" => Ok(Self(InternalOneBotSegment::Typed(
-                InternalOneBotTypedSegment::Contact(rmpv::ext::from_value(data)?),
+                InternalOneBotTypedSegment::Contact(transport::from_value(data)?),
             ))),
             "location" => Ok(Self(InternalOneBotSegment::Typed(
-                InternalOneBotTypedSegment::Location(rmpv::ext::from_value(data)?),
+                InternalOneBotTypedSegment::Location(transport::from_value(data)?),
             ))),
             "reply" => Ok(Self(InternalOneBotSegment::Typed(
                 InternalOneBotTypedSegment::Reply {
-                    id: rmpv::ext::from_value(data)?,
+                    id: transport::from_value(data)?,
                 },
             ))),
             _ => Ok(Self(InternalOneBotSegment::Unknown(
@@ -327,7 +331,7 @@ impl TryFrom<Segment> for OneBotSegment {
 }
 
 impl TryFrom<OneBotSegment> for Segment {
-    type Error = rmpv::ext::Error;
+    type Error = ValueError;
 
     fn try_from(value: OneBotSegment) -> Result<Self, Self::Error> {
         match value {

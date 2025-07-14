@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
+use sithra_transport::{Value, ValueError};
 
 #[derive(Deserialize, Serialize)]
 pub struct Initialize<C> {
@@ -24,8 +25,8 @@ where
     /// # Errors
     /// Returns an error if the provided value cannot be deserialized into the
     /// config type.
-    pub fn from_value(value: rmpv::Value) -> Result<Self, rmpv::ext::Error> {
-        let this = rmpv::ext::from_value(value)?;
+    pub fn from_value(value: Value) -> Result<Self, ValueError> {
+        let this = sithra_transport::from_value(value)?;
         Ok(this)
     }
 }

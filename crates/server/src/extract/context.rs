@@ -5,7 +5,10 @@ use std::{
 
 use futures_util::{FutureExt, future::Map};
 use serde::Deserialize;
-use sithra_transport::datapack::{DataPack, RequestDataPack};
+use sithra_transport::{
+    ValueError,
+    datapack::{DataPack, RequestDataPack},
+};
 use tokio::sync::oneshot;
 use triomphe::Arc;
 use ulid::Ulid;
@@ -64,7 +67,7 @@ where
     OuterState: Send + Sync,
     T: for<'de> Deserialize<'de>,
 {
-    type Rejection = Error<rmpv::ext::Error>;
+    type Rejection = Error<ValueError>;
 
     async fn from_request(
         parts: Arc<RequestDataPack>,

@@ -12,7 +12,6 @@ typeshare.workspace = true
 sithra-server.workspace = true
 sithra-transport.workspace = true
 smallvec.workspace = true
-rmpv.workspace = true
 log.workspace = true
 
 [dev-dependencies]

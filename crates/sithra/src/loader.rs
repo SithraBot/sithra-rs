@@ -4,8 +4,7 @@ use ahash::HashMap;
 use futures_util::{SinkExt, StreamExt};
 use sithra_kit::{
     transport::{
-        datapack::{DataPack, DataPackCodec},
-        peer::{Peer, Reader, Writer},
+        self, datapack::{DataPack, DataPackCodec}, peer::{Peer, Reader, Writer}
     },
     types::{initialize::Initialize, log::Log},
 };
@@ -52,7 +51,7 @@ impl Loader {
                 }
             };
             let (write, read) = split_peer(peer);
-            let config_data = rmpv::ext::to_value(config.config.clone());
+            let config_data = transport::to_value(config.config.clone());
             let config_data = match config_data {
                 Ok(config_data) => config_data,
                 Err(err) => {
@@ -167,7 +166,7 @@ fn split_peer(
     )
 }
 
-fn init_datapack<D: Display>(conf: rmpv::Value, data_path: D) -> DataPack {
+fn init_datapack<D: Display>(conf: transport::Value, data_path: D) -> DataPack {
     let init = Initialize::new(conf, data_path);
     DataPack::builder().payload(init).path("/initialize").build()
 }
