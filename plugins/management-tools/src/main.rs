@@ -20,8 +20,6 @@ use sithra_kit::{
 };
 use triomphe::Arc;
 
-mod auth;
-
 #[derive(Debug, Clone, Default, Deserialize)]
 struct Config {
     #[serde(default)]
