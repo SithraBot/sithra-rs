@@ -14,6 +14,9 @@ use sithra_kit::{
 use crate::base::BaseXMap;
 
 mod base;
+mod plus;
+
+use plus::{p1, s1};
 
 #[derive(Clone)]
 struct AppState {
@@ -28,7 +31,9 @@ async fn main() {
         router!(r =>
             Message [
                 encrypt,
-                decrypt
+                decrypt,
+                p1,
+                s1,
             ]
         )
         .with_state(state)

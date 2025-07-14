@@ -10,9 +10,8 @@ use sithra_kit::{
         extract::context::{Clientful, Context},
         server::Client,
     },
-    transport::channel::Channel,
     types::{
-        channel::SetMute,
+        channel::ContextExt as _,
         initialize::Initialize,
         message::{Message, SendMessage, common::CommonSegment as H},
         smsg,
@@ -71,8 +70,9 @@ macro_rules! tap_err {
     };
 }
 
-async fn mute(ctx: Context<Message<H>, AppState>, mut channel: Channel) -> Option<SendMessage> {
+async fn mute(ctx: Context<Message<H>, AppState>) -> Option<SendMessage> {
     let args = parse_cmd(&ctx.content);
+    let channel = ctx.request.channel()?;
     let (id, duration) = match args {
         Ok(ok) => ok,
         Err(ParseErr::InvalidNumber) => return Some(smsg!("无效的数字喵")),
@@ -92,11 +92,7 @@ async fn mute(ctx: Context<Message<H>, AppState>, mut channel: Channel) -> Optio
 
     let is_unmute = duration.is_zero();
 
-    id.clone_into(&mut channel.id);
-
-    let set_mute = SetMute { channel, duration };
-    let res = ctx.post(set_mute);
-    let res = tap_err!(res, "禁言").await;
+    let res = ctx.set_mute_member(id, duration).await;
     tap_err!(res, "禁言");
     Some(smsg!(H [
         text: if is_unmute {"解禁成功喵 "} else {"禁言成功喵 "},

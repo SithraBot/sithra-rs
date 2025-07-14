@@ -5,7 +5,7 @@ use sithra_server::{
     extract::context::{Clientful, Context},
     server::PostError,
 };
-use sithra_transport::{channel::Channel, datapack::RequestDataPack, Value, ValueError};
+use sithra_transport::{Value, ValueError, channel::Channel, datapack::RequestDataPack};
 use smallvec::SmallVec;
 use typeshare::typeshare;
 
@@ -161,16 +161,16 @@ impl<D1: Display, D2: Display> From<Result<D1, D2>> for SendMessage {
 pub trait ContextExt {
     fn reply(
         &self,
-        msg: impl Into<SendMessage> + Send + Sync,
-    ) -> impl Future<Output = Result<Message, PostError>> + Send + Sync;
+        msg: impl Into<SendMessage>,
+    ) -> impl Future<Output = Result<Message, PostError>>;
 }
 
-impl<S, Seg> ContextExt for Context<Message<Seg>, S>
+impl<S, T> ContextExt for Context<T, S>
 where
     S: Clientful + Send + Sync,
-    Seg: for<'de> Deserialize<'de> + Send + Sync,
+    T: for<'de> Deserialize<'de> + Send + Sync,
 {
-    async fn reply(&self, msg: impl Into<SendMessage> + Send + Sync) -> Result<Message, PostError> {
+    async fn reply(&self, msg: impl Into<SendMessage>) -> Result<Message, PostError> {
         let datapack = self
             .client()
             .post(
