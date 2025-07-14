@@ -155,7 +155,7 @@ impl From<RequestDataPack> for DataPack {
 ///
 /// Used for initiating requests between peers, with optional channel
 /// metadata and a correlation ID for tracking.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct RequestDataPack {
     pub bot_id:  Option<String>,
     pub path:    String,

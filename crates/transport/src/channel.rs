@@ -27,6 +27,18 @@ pub struct Channel {
     pub self_id:   Option<String>,
 }
 
+impl Default for Channel {
+    fn default() -> Self {
+        Self {
+            id:        String::new(),
+            ty:        ChannelType::Private,
+            name:      String::new(),
+            parent_id: None,
+            self_id:   None,
+        }
+    }
+}
+
 impl Channel {
     /// Creates a new private channel.
     ///

@@ -6,13 +6,15 @@ use sithra_transport::{Value, ValueError};
 #[derive(Deserialize, Serialize)]
 pub struct Initialize<C> {
     pub config:    C,
+    pub id:        String,
     pub data_path: String,
 }
 
 impl<C> Initialize<C> {
-    pub fn new<D: Display>(config: C, data_path: D) -> Self {
+    pub fn new<D1: Display, D2: Display>(config: C, name: D1, data_path: D2) -> Self {
         Self {
             config,
+            id: name.to_string(),
             data_path: data_path.to_string(),
         }
     }

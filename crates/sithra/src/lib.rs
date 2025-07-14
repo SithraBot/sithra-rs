@@ -16,6 +16,7 @@ mod test {
             A {
                 value: "hello".to_owned(),
             },
+            "test",
             "/data",
         );
         let pack = DataPack::builder().payload(init).path("/").build();

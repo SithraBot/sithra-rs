@@ -1,4 +1,4 @@
-use std::{ops::Div, process, time::Duration};
+use std::time::Duration;
 
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
@@ -45,8 +45,14 @@ const fn default_health_check_interval() -> Duration {
 #[tokio::main]
 async fn main() {
     // Init plugin
-    let (plugin, Initialize { config, .. }) =
-        Plugin::new().await.expect("Init adapter onebot failed");
+    let (
+        plugin,
+        Initialize {
+            config,
+            id: plugin_id,
+            ..
+        },
+    ) = Plugin::new().await.expect("Init adapter onebot failed");
 
     // config
     let Config {
@@ -66,7 +72,6 @@ async fn main() {
     let ws_tx = conn_manager.ws_tx.clone();
 
     // init bot
-    let bot_id = format!("{}-{}", "onebot", process::id());
     let client = plugin.server.client();
 
     let state = AdapterState {
@@ -77,7 +82,7 @@ async fn main() {
     let plugin = plugin.map(|r| {
         r.route_typed(SendMessage::on(send_message))
             .route_typed(SetMute::on(set_mute))
-            .layer(BotId::new(bot_id.clone()))
+            .layer(BotId::new(plugin_id.clone()))
             .with_state(state)
     });
 
@@ -87,7 +92,7 @@ async fn main() {
     let connection_set = ConnectionSet {
         ws_rx,
         ws_tx,
-        bot_id,
+        bot_id: plugin_id,
         health_tx,
         health_rx,
     };
@@ -175,7 +180,7 @@ async fn handle_connection(
         "If you see this message, it indicates that an internal error has occurred. Please report \
          the issue.",
     );
-    let health_check_timeout = health_check_interval.div(2);
+    let health_check_timeout = health_check_interval / 2;
     let health_check = tokio::spawn(async move {
         let mut health_rx = health_rx;
         loop {
