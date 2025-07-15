@@ -123,7 +123,7 @@ fn render_svg(svg: &str, options: &Options) -> Result<Bytes, RenderError> {
 
     let mut pixmap =
         tiny_skia::Pixmap::new(width, height).ok_or(RenderError::FailedToCreatePixmap)?;
-
+    
     render(&tree, tiny_skia::Transform::default(), &mut pixmap.as_mut());
 
     let buffer = pixmap.encode_png()?;

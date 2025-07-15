@@ -1,0 +1,19 @@
+[package]
+name = "rune-run"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+sithra-kit.workspace = true
+tokio.workspace = true
+log.workspace = true
+triomphe.workspace = true
+anyhow = "1"
+rune = { version = "0.14", default-features = false, features = [
+    "emit",
+    "disable-io",
+    "alloc",
+] }
+
+[lints]
+workspace = true

@@ -118,7 +118,15 @@ impl MessageEventKind {
         match self {
             Self::Private { sender } => sender.nickname.clone(),
             Self::Group { sender, .. } => {
-                sender.card.clone().unwrap_or_else(|| sender.nickname.clone())
+                if let Some(card) = &sender.card {
+                    if card.is_empty() {
+                        sender.nickname.clone()
+                    } else {
+                        card.clone()
+                    }
+                } else {
+                    sender.nickname.clone()
+                }
             }
         }
     }
