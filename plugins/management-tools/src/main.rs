@@ -8,6 +8,7 @@ use sithra_kit::{
     plugin::Plugin,
     server::{
         extract::{
+            botid::BotId,
             context::{Clientful, Context},
             payload::Payload,
         },
@@ -80,7 +81,11 @@ macro_rules! tap_err {
     };
 }
 
-async fn channelinfo(Payload(msg): Payload<Message<H>>, channel: Channel) -> Option<SendMessage> {
+async fn channelinfo(
+    Payload(msg): Payload<Message<H>>,
+    channel: Channel,
+    BotId(bot_id): BotId,
+) -> Option<SendMessage> {
     match msg.content.as_slice() {
         [H::Text(text)] if text.trim() == "channelinfo" => {}
         _ => {
@@ -95,11 +100,12 @@ async fn channelinfo(Payload(msg): Payload<Message<H>>, channel: Channel) -> Opt
         self_id: _,
     } = channel;
     let info = format!(
-        "频道ID: {}\n频道类型: {}\n频道名称: {}\n父频道ID: {}",
+        "频道 ID: {}\n频道类型: {}\n频道名称: {}\n父频道 ID: {}\nBOT ID: {}",
         id,
         ty,
         name,
         parent_id.unwrap_or_else(|| "无".to_owned()),
+        bot_id.unwrap_or_else(|| "无".to_owned())
     );
     Some(smsg!(info))
 }
