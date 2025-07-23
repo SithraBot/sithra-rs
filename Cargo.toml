@@ -36,6 +36,7 @@ sithra-types = { path = "crates/types" }
 sithra-server = { path = "crates/server" }
 sithra-kit = { path = "crates/kit" }
 sithra-kit-macros = { path = "crates/kit-macros" }
+sithra = { path = "crates/sithra" }
 sithra-adapter-onebot = { path = "adapters/onebot" }
 
 [workspace.lints.clippy]

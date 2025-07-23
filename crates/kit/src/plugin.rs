@@ -1,4 +1,4 @@
-use std::{env, io::stdout};
+use std::{env, io::stdout, process};
 
 use futures_util::StreamExt;
 use schemars::JsonSchema;
@@ -30,7 +30,7 @@ impl Plugin {
     where
         Config: for<'de> Deserialize<'de> + JsonSchema,
     {
-        let is_get_schema = env::args().any(|arg| arg.eq("--schema"));
+        let is_get_schema = env::args().any(|arg| arg.trim().eq("--schema"));
         if is_get_schema {
             let schema_gen = schemars::generate::SchemaSettings::draft07()
                 .with(|c| {
@@ -41,6 +41,7 @@ impl Plugin {
                 .into_generator();
             let schema = schema_gen.into_root_schema_for::<Config>();
             serde_json::to_writer(stdout(), &schema)?;
+            process::exit(0);
         }
         let peer = Peer::new();
         let server = Server::new();
