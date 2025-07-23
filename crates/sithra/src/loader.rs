@@ -103,14 +103,14 @@ impl Loader {
     }
 
     /// # Errors
-    /// 
+    ///
     /// # Panics
     /// - If the lock is poisoned
     pub async fn load(&self, id: &str) -> Result<(), LoaderError> {
         let Some(config) = self.config.get(id) else {
             return Err(LoaderError::PluginConfigDoesNotExist(id.to_owned()));
         };
-        let path = std::env::current_dir()?;
+        let path = std::env::current_dir()?.join("data");
         log::info!("Loading {id}");
         let broadcast_tx = self.broadcast_tx.clone();
         let broadcast_rx = broadcast_tx.subscribe();
