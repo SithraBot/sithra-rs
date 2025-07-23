@@ -306,6 +306,7 @@ name = "crypt"
 version = "0.1.0"
 dependencies = [
  "log",
+ "schemars 1.0.4",
  "serde",
  "sithra-kit",
  "thiserror",
@@ -628,6 +629,7 @@ dependencies = [
  "hex",
  "hmac",
  "log",
+ "schemars 1.0.4",
  "serde",
  "serde_json",
  "sha2",
@@ -1099,6 +1101,7 @@ name = "management-tools"
 version = "0.1.0"
 dependencies = [
  "log",
+ "schemars 1.0.4",
  "serde",
  "sithra-adapter-onebot",
  "sithra-kit",
@@ -1946,8 +1949,21 @@ checksum = "82d20c4491bc164fa2f6c5d44565947a52ad80b9505d8e36f8d54c27c739fcd0"
 dependencies = [
  "dyn-clone",
  "ref-cast",
+ "schemars_derive",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "schemars_derive"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33d020396d1d138dc19f1165df7545479dcd58d93810dc5d646a16e55abefa80"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde_derive_internals",
+ "syn",
 ]
 
 [[package]]
@@ -1976,6 +1992,17 @@ name = "serde_derive"
 version = "1.0.219"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b0276cf7f2c73365f7157c8123c21cd9a50fbbd844757af28ca1f5925fc2a00"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "serde_derive_internals"
+version = "0.29.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18d26a20a969b9e3fdf2fc2d9f21eda6c40e2de84c9408bb5d3b05d499aae711"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2150,6 +2177,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "toml",
+ "toml_edit",
  "tower",
  "tracing-subscriber",
  "triomphe",
@@ -2166,6 +2194,7 @@ dependencies = [
  "hyper",
  "log",
  "once_cell",
+ "schemars 1.0.4",
  "serde",
  "serde_json",
  "serde_with",
@@ -2186,12 +2215,24 @@ dependencies = [
  "log",
  "once_cell",
  "pin-project",
+ "schemars 1.0.4",
  "serde",
+ "serde_json",
+ "sithra-kit-macros",
  "sithra-server",
  "sithra-types",
  "thiserror",
  "tokio",
  "tower",
+]
+
+[[package]]
+name = "sithra-kit-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -2207,7 +2248,6 @@ dependencies = [
  "pin-project",
  "rmp-serde",
  "serde",
- "sithra-server-macros",
  "sithra-transport",
  "smallvec",
  "thiserror",
@@ -2216,15 +2256,6 @@ dependencies = [
  "tower",
  "triomphe",
  "ulid",
-]
-
-[[package]]
-name = "sithra-server-macros"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -2581,10 +2612,25 @@ dependencies = [
 ]
 
 [[package]]
-name = "toml_parser"
-version = "1.0.0"
+name = "toml_edit"
+version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5c1c469eda89749d2230d8156a5969a69ffe0d6d01200581cdc6110674d293e"
+checksum = "b1f23a5f4511b296579b6c83e437fe85fa7ece22e3ec44e45ddb975bcf57c3dd"
+dependencies = [
+ "indexmap 2.9.0",
+ "serde",
+ "serde_spanned",
+ "toml_datetime",
+ "toml_parser",
+ "toml_writer",
+ "winnow",
+]
+
+[[package]]
+name = "toml_parser"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97200572db069e74c512a14117b296ba0a80a30123fbbb5aa1f4a348f639ca30"
 dependencies = [
  "winnow",
 ]
@@ -3050,7 +3096,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -3257,6 +3303,9 @@ name = "winnow"
 version = "0.7.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "74c7b26e3480b707944fc872477815d29a8e429d2f93a1ce000f5fa84a15cbcd"
+dependencies = [
+ "memchr",
+]
 
 [[package]]
 name = "wit-bindgen-rt"

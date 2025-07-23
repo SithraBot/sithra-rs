@@ -16,6 +16,7 @@ serde_json.workspace = true
 serde_with = "3"
 log.workspace = true
 ulid.workspace = true
+schemars.workspace = true
 hyper = { version = "1", features = ["full"] }
 fastrand = "2"
 url = "2"

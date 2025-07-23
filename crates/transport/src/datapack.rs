@@ -605,3 +605,20 @@ pub enum DataPackCodecError {
     #[error("DataPack deserialization error: {0}")]
     Deserialize(#[from] rmp_serde::decode::Error),
 }
+
+impl DataPackCodecError {
+    #[must_use]
+    pub const fn is_io(&self) -> bool {
+        matches!(self, Self::IO(_))
+    }
+
+    #[must_use]
+    pub const fn is_serialize(&self) -> bool {
+        matches!(self, Self::Serialize(_))
+    }
+
+    #[must_use]
+    pub const fn is_deserialize(&self) -> bool {
+        matches!(self, Self::Deserialize(_))
+    }
+}

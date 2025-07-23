@@ -1,4 +1,5 @@
 use axum::Router;
+use schemars::JsonSchema;
 use serde::Deserialize;
 use sithra_kit::{
     plugin::Plugin,
@@ -13,27 +14,41 @@ mod webhook;
 
 use webhook::webhook;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 struct Config {
+    /// # webhook 端口
     port:     u16,
+    /// # webhook 地址
     host:     String,
+    /// # webhook 密钥
     secret:   String,
+    /// # 广播频道
     channels: Vec<ChannelConfig>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 struct ChannelConfig {
+    /// # 机器人ID
     #[serde(rename = "bot-id")]
     bot_id: String,
+    /// # 频道类型
     #[serde(flatten)]
     kind:   ChannelKind,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 enum ChannelKind {
-    Group(String),
-    Private(String),
+    /// # 群组频道
+    Group(
+        /// # 群组ID
+        String,
+    ),
+    /// # 私人频道
+    Private(
+        /// # 用户ID
+        String,
+    ),
 }
 
 impl From<ChannelConfig> for (Channel, String) {

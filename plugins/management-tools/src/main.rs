@@ -3,6 +3,7 @@ use std::{
     time::Duration,
 };
 
+use schemars::JsonSchema;
 use serde::Deserialize;
 use sithra_kit::{
     plugin::Plugin,
@@ -25,7 +26,7 @@ use sithra_kit::{
 };
 use triomphe::Arc;
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, JsonSchema)]
 struct Config {
     #[serde(default)]
     admins: Vec<String>,

@@ -20,3 +20,6 @@ pub use serde_json::Value;
 pub use serde_json::to_value;
 pub use serde_json::from_value;
 pub use serde_json::Error as ValueError;
+
+pub use rmp_serde::encode::Error as EncodeError;
+pub use rmp_serde::decode::Error as DecodeError;

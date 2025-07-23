@@ -22,10 +22,6 @@ pub mod __private {
     pub use serde::Deserialize;
 }
 
-#[allow(unused_imports)]
-#[cfg(feature = "macros")]
-pub use sithra_server_macros::*;
-
 pub(crate) fn try_downcast<T, K>(k: K) -> Result<T, K>
 where
     T: 'static,

@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use futures_util::{SinkExt, StreamExt};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use sithra_adapter_onebot::{
@@ -24,8 +25,8 @@ use tokio_tungstenite::tungstenite::Message as WsMessage;
 use triomphe::Arc;
 use ulid::Ulid;
 
+#[derive(Clone, Deserialize, Serialize, JsonSchema)]
 #[serde_as]
-#[derive(Clone, Deserialize, Serialize)]
 struct Config {
     #[serde(rename = "ws-url")]
     ws_url:                String,

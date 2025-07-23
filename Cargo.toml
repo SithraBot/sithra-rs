@@ -27,6 +27,7 @@ once_cell = { version = "1.21" }
 ahash = { version = "0.8" }
 serde_json = { version = "1" }
 itertools = { version = "0.14" }
+schemars = { version = "1" }
 
 # Workspace
 
@@ -34,7 +35,7 @@ sithra-transport = { path = "crates/transport" }
 sithra-types = { path = "crates/types" }
 sithra-server = { path = "crates/server" }
 sithra-kit = { path = "crates/kit" }
-sithra-server-macros = { path = "crates/server-macros" }
+sithra-kit-macros = { path = "crates/kit-macros" }
 sithra-adapter-onebot = { path = "adapters/onebot" }
 
 [workspace.lints.clippy]

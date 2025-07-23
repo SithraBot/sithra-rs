@@ -1,4 +1,7 @@
+use std::{env, io::stdout};
+
 use futures_util::StreamExt;
+use schemars::JsonSchema;
 use serde::Deserialize;
 use sithra_server::{
     routing::router::Router,
@@ -25,8 +28,20 @@ impl Plugin {
     ///   before the config was received.
     pub async fn new<Config>() -> Result<(Self, Initialize<Config>), PluginInitError>
     where
-        Config: for<'de> Deserialize<'de>,
+        Config: for<'de> Deserialize<'de> + JsonSchema,
     {
+        let is_get_schema = env::args().any(|arg| arg.eq("--schema"));
+        if is_get_schema {
+            let schema_gen = schemars::generate::SchemaSettings::draft07()
+                .with(|c| {
+                    c.meta_schema = None;
+                    c.inline_subschemas = true;
+                    c.untagged_enum_variant_titles = true;
+                })
+                .into_generator();
+            let schema = schema_gen.into_root_schema_for::<Config>();
+            serde_json::to_writer(stdout(), &schema)?;
+        }
         let peer = Peer::new();
         let server = Server::new();
         let router = Router::new();
@@ -107,8 +122,10 @@ impl Plugin {
 
 #[derive(Debug, Error)]
 pub enum PluginInitError {
-    #[error("Failed to deserialize config")]
+    #[error("Failed to deserialize config: {0}")]
     DeserializationError(String),
     #[error("Connection closed")]
     ConnectionClosed,
+    #[error("Failed to serialize schema: {0}")]
+    JsonSerializationError(#[from] serde_json::Error),
 }

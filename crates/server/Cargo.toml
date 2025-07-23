@@ -24,11 +24,6 @@ ahash.workspace = true
 # Workspace dependencies
 
 sithra-transport.workspace = true
-sithra-server-macros = { workspace = true, optional = true }
 
 [lints]
 workspace = true
-
-[features]
-default = ["macros"]
-macros = ["sithra-server-macros"]

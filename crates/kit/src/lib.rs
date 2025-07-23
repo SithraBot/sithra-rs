@@ -13,3 +13,10 @@ pub mod initialize;
 
 #[cfg(feature = "plugin")]
 pub mod plugin;
+
+#[cfg(feature = "plugin")]
+#[doc(hidden)]
+pub use schemars;
+
+#[doc(hidden)]
+pub mod __private {}
