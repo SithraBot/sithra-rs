@@ -1,7 +1,7 @@
 use std::ops::{Deref, DerefMut};
 
 use serde::de::DeserializeOwned;
-use sithra_transport::{datapack::RequestDataPack, Value, ValueError};
+use sithra_transport::{Value, ValueError, datapack::RequestDataPack};
 use triomphe::Arc;
 
 use crate::{extract::FromRequest, response};

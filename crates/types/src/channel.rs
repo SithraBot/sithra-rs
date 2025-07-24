@@ -59,21 +59,14 @@ where
         user: impl Display + Send + Sync,
         duration: Duration,
     ) -> Result<(), SetMuteError> {
-        let mut channel = self
-            .request
-            .channel()
-            .ok_or(SetMuteError::ContextNotIncludedChannel)?;
+        let mut channel = self.request.channel().ok_or(SetMuteError::ContextNotIncludedChannel)?;
         channel.id = user.to_string();
         let set_mute = SetMute { channel, duration };
         self.post(set_mute).await?;
         Ok(())
     }
 
-    async fn set_mute(
-        &self,
-        channel: Channel,
-        duration: Duration,
-    ) -> Result<(), SetMuteError> {
+    async fn set_mute(&self, channel: Channel, duration: Duration) -> Result<(), SetMuteError> {
         let set_mute = SetMute { channel, duration };
         self.post(set_mute).await?;
         Ok(())

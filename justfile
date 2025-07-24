@@ -13,5 +13,10 @@ run:
     cargo build --all
     cargo run
 
+run_web:
+    cargo build --all
+    cp -rf crates/sithra-web/web/build web
+    cargo run -psithra-web
+
 build_linux_x86_64:
     cargo build --all -r --target x86_64-unknown-linux-musl

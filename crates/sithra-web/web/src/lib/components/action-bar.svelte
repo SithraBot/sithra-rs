@@ -1,6 +1,6 @@
 <script lang="ts">
     import { Button } from "./ui/button/index";
-    import { Separator } from "$lib/components/ui/separator/index.js";
+    import { Separator } from "$lib/components/ui/separator/index";
     import Play from "@lucide/svelte/icons/play";
     import Trash from "@lucide/svelte/icons/trash";
     import Copy from "@lucide/svelte/icons/copy";
@@ -9,7 +9,7 @@
 </script>
 
 <div
-    class="bg-secondary p-1 flex items-center border shadow-sm rounded-lg gap-2"
+    class="bg-secondary/50 p-1 flex items-center border shadow-sm rounded-lg gap-2 mb-0.5"
 >
     <Button
         {disabled}

@@ -2,7 +2,6 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use thiserror::Error;
 
-
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum BaseXMap {

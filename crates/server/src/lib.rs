@@ -59,7 +59,7 @@ mod tests {
         sync::atomic::{AtomicUsize, Ordering},
     };
 
-    use sithra_transport::{datapack::RequestDataPack, Value};
+    use sithra_transport::{Value, datapack::RequestDataPack};
     use tokio::sync::Mutex;
     use tower::Service;
     use triomphe::Arc;
@@ -109,10 +109,7 @@ mod tests {
                 }),
             )
             .route("/count2", on(count2))
-            .route(
-                "/any",
-                on(async |Payload(_payload): Payload<Value>| {}),
-            )
+            .route("/any", on(async |Payload(_payload): Payload<Value>| {}))
             .with_state(state.clone());
 
         router

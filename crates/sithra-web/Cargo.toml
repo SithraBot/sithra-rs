@@ -7,8 +7,11 @@ edition.workspace = true
 sithra.workspace = true
 tokio.workspace = true
 log.workspace = true
+thiserror.workspace = true
 tracing-subscriber = "0.3"
+axum = "0.8"
 anyhow = "1"
+tower-http = { version = "0.6", features = ["fs"] }
 
 [lints]
 workspace = true
