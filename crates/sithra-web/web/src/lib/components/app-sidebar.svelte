@@ -2,13 +2,17 @@
     import HouseIcon from "@lucide/svelte/icons/house";
     import Boxes from "@lucide/svelte/icons/boxes";
     import Plus from "@lucide/svelte/icons/plus";
-    import * as Sidebar from "$lib/components/ui/sidebar/index.js";
+    import Trash from "@lucide/svelte/icons/trash";
+    import Ellipsis from "@lucide/svelte/icons/ellipsis";
+    import Copy from "@lucide/svelte/icons/copy";
+    import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index";
+    import * as Sidebar from "$lib/components/ui/sidebar/index";
 
     // Menu items.
     const mainItems = [
         {
             title: "主页",
-            url: "#",
+            url: "/",
             icon: HouseIcon,
         },
     ];
@@ -35,7 +39,7 @@
                 <Sidebar.Menu>
                     {#each mainItems as item (item.title)}
                         <Sidebar.MenuItem>
-                            <Sidebar.MenuButton>
+                            <Sidebar.MenuButton isActive>
                                 {#snippet child({ props })}
                                     <a href={item.url} {...props}>
                                         <item.icon />
@@ -65,6 +69,28 @@
                                     </a>
                                 {/snippet}
                             </Sidebar.MenuButton>
+                            <DropdownMenu.Root>
+                                <DropdownMenu.Trigger>
+                                    {#snippet child({ props })}
+                                        <Sidebar.MenuAction {...props}>
+                                            <Ellipsis />
+                                        </Sidebar.MenuAction>
+                                    {/snippet}
+                                </DropdownMenu.Trigger>
+                                <DropdownMenu.Content
+                                    side="right"
+                                    align="start"
+                                >
+                                    <DropdownMenu.Item>
+                                        <Trash />
+                                        <span>删除实例</span>
+                                    </DropdownMenu.Item>
+                                    <DropdownMenu.Item>
+                                        <Copy />
+                                        <span>创建副本</span>
+                                    </DropdownMenu.Item>
+                                </DropdownMenu.Content>
+                            </DropdownMenu.Root>
                         </Sidebar.MenuItem>
                     {/each}
                 </Sidebar.Menu>
