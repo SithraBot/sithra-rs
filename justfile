@@ -14,6 +14,7 @@ run:
     cargo run
 
 run_web:
+    (cd crates/sithra-web/web && npm run build)
     cargo build --all
     cp -rf crates/sithra-web/web/build web
     cargo run -psithra-web
