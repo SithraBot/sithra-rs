@@ -1,6 +1,6 @@
 use rune::{Diagnostics, Source, Sources};
 use sithra_kit::{
-    plugin::Plugin,
+    plugin,
     server::extract::{payload::Payload, state::State},
     types::{
         message::{Message, SendMessage, common::CommonSegment as H},
@@ -17,7 +17,7 @@ pub struct AppState {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let (plugin, _) = Plugin::new::<()>().await.unwrap();
+    let (plugin, _) = plugin!();
     let context = rune::Context::with_config(false)?;
     let runtime = context.runtime()?;
     let state = AppState {

@@ -2,19 +2,19 @@ use serde::Deserialize;
 use thiserror::Error;
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(tag = "base", content = "charset")]
+#[serde(rename_all = "lowercase")]
 pub enum BaseXMap {
-    #[serde(rename = "2")]
+    /// # Base2
     Base2([char; 2]),
-    #[serde(rename = "4")]
+    /// # Base4
     Base4([char; 4]),
-    #[serde(rename = "8")]
+    /// # Base8
     Base8([char; 8]),
-    #[serde(rename = "16")]
+    /// # Base16
     Base16([char; 16]),
-    #[serde(rename = "32")]
+    /// # Base32
     Base32([char; 32]),
-    #[serde(rename = "64")]
+    /// # Base64
     Base64(Vec<char>),
 }
 

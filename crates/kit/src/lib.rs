@@ -13,3 +13,6 @@ pub mod initialize;
 
 #[cfg(feature = "plugin")]
 pub mod plugin;
+
+#[doc(hidden)]
+pub mod __private {}

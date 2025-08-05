@@ -6,7 +6,7 @@ use ser::Error as _;
 use serde::{Deserialize, Serialize, de, ser};
 use sithra_kit::{
     transport::{self, ValueError},
-    types::message::{Segment, NIL},
+    types::message::{NIL, Segment},
 };
 
 use crate::message::internal::InternalOneBotUnknownSegment;

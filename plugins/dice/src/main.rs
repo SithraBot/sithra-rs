@@ -1,13 +1,14 @@
-use std::fmt::Display;
+use std::{fmt::Display, str::FromStr};
 
 use nom::{
     IResult, Parser,
     branch::alt,
-    character::complete::{char, digit0, digit1},
-    combinator::{eof, opt},
+    bytes::complete::tag,
+    character::complete::{char, digit1},
+    combinator::{eof, map_res, opt, value},
 };
 use sithra_kit::{
-    plugin::Plugin,
+    plugin,
     server::extract::payload::Payload,
     types::{
         message::{Message, SendMessage, common::CommonSegment as H},
@@ -18,7 +19,7 @@ use thiserror::Error;
 
 #[tokio::main]
 async fn main() {
-    let (plugin, _) = Plugin::new::<()>().await.unwrap();
+    let (plugin, _) = plugin!();
     let plugin = plugin.map(|r| r.route_typed(Message::on(dice)));
     log::info!("Dice plugin started");
     tokio::select! {
@@ -33,14 +34,13 @@ async fn dice(Payload(msg): Payload<Message<H>>) -> Option<SendMessage> {
     if let Some(err) = dice.verify() {
         return Some(smsg!(err.to_string()));
     }
-    
+
     log::debug!("Dice roll requested: {dice}");
 
     let Dice {
         face,
         times,
         select,
-        select_high,
     } = dice;
 
     #[allow(clippy::cast_possible_truncation)]
@@ -59,7 +59,7 @@ async fn dice(Payload(msg): Payload<Message<H>>) -> Option<SendMessage> {
         String::new()
     };
 
-    if let Some(select) = select {
+    if let Some((select_high, select)) = select {
         if select_high {
             results.drain(..results.len() - select);
         } else {
@@ -81,10 +81,10 @@ async fn dice(Payload(msg): Payload<Message<H>>) -> Option<SendMessage> {
 }
 
 struct Dice {
-    face:        u64,
-    times:       usize,
-    select:      Option<usize>,
-    select_high: bool,
+    face:   u64,
+    times:  usize,
+    /// (select high, select line)
+    select: Option<(bool, usize)>,
 }
 
 impl Dice {
@@ -93,7 +93,7 @@ impl Dice {
             Some(DiceVerify::Face)
         } else if self.times == 0 {
             Some(DiceVerify::Times)
-        } else if let Some(select) = self.select {
+        } else if let Some((_, select)) = self.select {
             if select == 0 {
                 Some(DiceVerify::Select)
             } else if select > self.times {
@@ -110,8 +110,8 @@ impl Dice {
 impl Display for Dice {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}d{}", self.face, self.times)?;
-        if let Some(select) = self.select {
-            write!(f, "{}{}", if self.select_high { 'k' } else { 'q' }, select)?;
+        if let Some((select_high, select)) = self.select {
+            write!(f, "{}{}", if select_high { 'k' } else { 'q' }, select)?;
         }
         Ok(())
     }
@@ -130,36 +130,24 @@ enum DiceVerify {
 }
 
 fn parse_dice(msg: &[H]) -> Option<Dice> {
-    let (face, times, select, select_high): (u64, usize, Option<usize>, bool) = match msg {
-        [H::Text(text), ..] => {
-            let IResult::<&str, _>::Ok((_, (face, _, times, select, _))) = (
-                digit1,
-                char('d'),
-                digit0,
-                opt((alt((char('k'), char('q'))), digit1)),
-                eof,
-            )
-                .parse(text.as_str())
-            else {
-                return None;
-            };
-            let times = times.parse().unwrap_or(1);
-            let Ok(face) = face.parse() else {
-                return None;
-            };
-            let (select, select_high) = if let Some(select) = select {
-                (select.1.parse().ok(), select.0 == 'k')
-            } else {
-                (None, false)
-            };
-            (face, times, select, select_high)
-        }
-        _ => return None,
+    let [H::Text(text), ..] = msg else {
+        return None;
     };
+    let ir: IResult<&str, _> = (
+        map_res(digit1, u64::from_str),
+        char('d'),
+        alt((map_res(digit1, usize::from_str), value(1, tag("")))),
+        opt((
+            alt((value(true, char('k')), value(false, char('q')))),
+            alt((map_res(digit1, usize::from_str), value(1, tag("")))),
+        )),
+        eof,
+    )
+        .parse(text);
+    let (_, (face, _, times, select, _)) = ir.ok()?;
     Some(Dice {
         face,
         times,
         select,
-        select_high,
     })
 }

@@ -1,6 +1,9 @@
 /target
 /config.toml
+/config.d
 /sithra-js/node_modules
 /sithra-js/transport/dist
 /sithra-js/kit/dist
 /data
+/web
+/credentials

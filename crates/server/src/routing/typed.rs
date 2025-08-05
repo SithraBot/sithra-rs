@@ -89,7 +89,6 @@ macro_rules! typed {
         * }; */
 }
 
-#[cfg(feature = "macros")]
 #[macro_export]
 macro_rules! on {
     ($handler:ident) => {
@@ -97,7 +96,6 @@ macro_rules! on {
     };
 }
 
-#[cfg(feature = "macros")]
 #[macro_export]
 macro_rules! router {
     { $router:expr => $($typed:ty[$($handler:expr),*$(,)?]),*$(,)? } => {

@@ -13,12 +13,7 @@ impl Log for ClientLogger {
     }
 
     fn log(&self, record: &log::Record) {
-        let log_request = LogRequest::new(
-            record.level(),
-            format!("{}", record.args()),
-            record.target().to_owned(),
-        );
-
+        let log_request = LogRequest::from(record);
         self.0.send(RequestDataPack::from(log_request)).ok();
     }
 
@@ -29,5 +24,5 @@ impl Log for ClientLogger {
 pub fn init_log(client_sink: ClientSink) {
     LOGGER.set(ClientLogger(client_sink)).ok();
     log::set_logger(LOGGER.get().expect("unreachable")).unwrap();
-    log::set_max_level(log::LevelFilter::Trace);
+    log::set_max_level(log::LevelFilter::max());
 }

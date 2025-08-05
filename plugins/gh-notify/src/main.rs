@@ -1,7 +1,7 @@
 use axum::Router;
 use serde::Deserialize;
 use sithra_kit::{
-    plugin::Plugin,
+    plugin,
     server::server::Client,
     transport::channel::{Channel, ChannelType},
     types::initialize::Initialize,
@@ -15,16 +15,22 @@ use webhook::webhook;
 
 #[derive(Deserialize)]
 struct Config {
+    /// # webhook 端口
     port:     u16,
+    /// # webhook 地址
     host:     String,
+    /// # webhook 密钥
     secret:   String,
+    /// # 广播频道
     channels: Vec<ChannelConfig>,
 }
 
 #[derive(Deserialize)]
 struct ChannelConfig {
+    /// # 机器人ID
     #[serde(rename = "bot-id")]
     bot_id: String,
+    /// # 频道类型
     #[serde(flatten)]
     kind:   ChannelKind,
 }
@@ -32,8 +38,16 @@ struct ChannelConfig {
 #[derive(Deserialize)]
 #[serde(rename_all = "lowercase")]
 enum ChannelKind {
-    Group(String),
-    Private(String),
+    /// # 群组频道
+    Group(
+        /// # 群组ID
+        String,
+    ),
+    /// # 私人频道
+    Private(
+        /// # 用户ID
+        String,
+    ),
 }
 
 impl From<ChannelConfig> for (Channel, String) {
@@ -69,7 +83,7 @@ struct AppState {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let (plugin, Initialize { config, .. }) = Plugin::new::<Config>().await.unwrap();
+    let (plugin, Initialize { config, .. }) = plugin!(Config);
 
     let state = AppState {
         channels: config.channels.into_iter().map(<(Channel, String)>::from).collect(),
@@ -80,11 +94,11 @@ async fn main() -> anyhow::Result<()> {
     let app: Router =
         Router::new().route("/webhook", axum::routing::post(webhook)).with_state(state);
 
-    let listener = TcpListener::bind((config.host, config.port)).await?;
+    let listener = TcpListener::bind((config.host.as_str(), config.port)).await?;
 
     let serve = axum::serve(listener, app);
 
-    log::info!("Github notify plugin started");
+    log::info!(port = config.port, host = config.host; "Github notify plugin started");
     tokio::select! {
         _ = plugin.run().join_all() => {}
         _ = tokio::signal::ctrl_c() => {}

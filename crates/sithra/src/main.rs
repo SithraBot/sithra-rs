@@ -4,7 +4,7 @@ use tokio::signal;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
-    let config = conf::load_config();
+    let config = conf::Config::load_config("./config.toml", "./config.d");
     let config = match config {
         Ok(config) => config,
         Err(err) => {
@@ -12,8 +12,11 @@ async fn main() -> anyhow::Result<()> {
             return Err(err.into());
         }
     };
-    let mut loader = loader::Loader::new(config);
-    loader.load();
+    let loader = loader::Loader::new(config);
+    let errs = loader.load_all().await;
+    for (name, err) in errs {
+        log::error!("Failed to load plugin {name}: {err}");
+    }
 
     signal::ctrl_c().await?;
 

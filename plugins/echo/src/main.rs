@@ -1,5 +1,5 @@
 use sithra_kit::{
-    plugin::Plugin,
+    plugin,
     server::extract::payload::Payload,
     types::{
         message::{Message, SendMessage, common::CommonSegment as H},
@@ -9,7 +9,7 @@ use sithra_kit::{
 
 #[tokio::main]
 async fn main() {
-    let (plugin, _) = Plugin::new::<()>().await.unwrap();
+    let (plugin, _) = plugin!();
     let plugin = plugin.map(|r| r.route_typed(Message::on(echo)));
     log::info!("Echo plugin started");
     tokio::select! {

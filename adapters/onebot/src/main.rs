@@ -14,7 +14,7 @@ use sithra_adapter_onebot::{
 };
 use sithra_kit::{
     layers::BotId,
-    plugin::Plugin,
+    plugin,
     server::server::ClientSink,
     transport::datapack::DataPack,
     types::{channel::SetMute, initialize::Initialize, message::SendMessage},
@@ -24,8 +24,8 @@ use tokio_tungstenite::tungstenite::Message as WsMessage;
 use triomphe::Arc;
 use ulid::Ulid;
 
-#[serde_as]
 #[derive(Clone, Deserialize, Serialize)]
+#[serde_as]
 struct Config {
     #[serde(rename = "ws-url")]
     ws_url:                String,
@@ -52,7 +52,7 @@ async fn main() {
             id: plugin_id,
             ..
         },
-    ) = Plugin::new().await.expect("Init adapter onebot failed");
+    ) = plugin!(Config);
 
     // config
     let Config {
