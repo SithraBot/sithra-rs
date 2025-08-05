@@ -1,5 +1,5 @@
 use resvg::usvg;
-use sithra_kit::{plugin::Plugin, server::router, types::message::Message};
+use sithra_kit::{plugin, server::router, types::message::Message};
 use triomphe::Arc;
 mod server;
 mod skin;
@@ -15,7 +15,7 @@ pub struct AppState<'a> {
 
 #[tokio::main]
 async fn main() {
-    let (plugin, _) = Plugin::new::<()>().await.unwrap();
+    let (plugin, _) = plugin!();
     let mut svg_opt = usvg::Options::default();
     svg_opt.fontdb_mut().load_system_fonts();
     svg_opt.fontdb_mut().load_font_data(FONT.to_owned());

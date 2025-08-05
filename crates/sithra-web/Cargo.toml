@@ -8,10 +8,21 @@ sithra.workspace = true
 tokio.workspace = true
 log.workspace = true
 thiserror.workspace = true
-tracing-subscriber = "0.3"
+triomphe.workspace = true
+serde.workspace = true
+tracing-subscriber = { version = "0.3", features = [
+    "env-filter",
+    "local-time",
+    "registry",
+    "json",
+] }
 axum = "0.8"
 anyhow = "1"
 tower-http = { version = "0.6", features = ["fs"] }
+clap = { version = "4", features = ["derive", "env"] }
+tracing = "0.1.41"
+jsonwebtoken = "9"
+axum-extra = { version = "0.10", features = ["typed-header"] }
 
 [lints]
 workspace = true

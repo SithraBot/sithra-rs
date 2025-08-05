@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 use futures_util::{SinkExt, StreamExt};
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use sithra_adapter_onebot::{
@@ -15,7 +14,7 @@ use sithra_adapter_onebot::{
 };
 use sithra_kit::{
     layers::BotId,
-    plugin::Plugin,
+    plugin,
     server::server::ClientSink,
     transport::datapack::DataPack,
     types::{channel::SetMute, initialize::Initialize, message::SendMessage},
@@ -25,7 +24,7 @@ use tokio_tungstenite::tungstenite::Message as WsMessage;
 use triomphe::Arc;
 use ulid::Ulid;
 
-#[derive(Clone, Deserialize, Serialize, JsonSchema)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde_as]
 struct Config {
     #[serde(rename = "ws-url")]
@@ -53,7 +52,7 @@ async fn main() {
             id: plugin_id,
             ..
         },
-    ) = Plugin::new().await.expect("Init adapter onebot failed");
+    ) = plugin!(Config);
 
     // config
     let Config {

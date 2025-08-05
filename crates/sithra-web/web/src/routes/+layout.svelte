@@ -1,44 +1,49 @@
 <script lang="ts">
     import "../app.css";
     import * as Sidebar from "$lib/components/ui/sidebar/index";
-    import * as Breadcrumb from "$lib/components/ui/breadcrumb/index";
-    import { Separator } from "$lib/components/ui/separator/index";
     import AppSidebar from "$lib/components/app-sidebar.svelte";
     import { ModeWatcher } from "mode-watcher";
-    import DarkToggle from "$lib/components/dark-toggle.svelte";
-    import ActionBar from "$lib/components/action-bar.svelte";
+    import { Toaster } from "$lib/components/ui/sonner/index";
+    import Header from "$lib/components/header.svelte";
+    import hotkeys from "hotkeys-js";
+    import { plgsInfo } from "$lib/state.svelte";
+    import DelDialog from "$lib/components/del-dialog.svelte";
+    import CloneDialog from "$lib/components/clone-dialog.svelte";
+    import LoginDialog from "$lib/components/login-dialog.svelte";
+    import SignupDialog from "$lib/components/signup-dialog.svelte";
+    import { isLogin } from "$lib/auth";
+    let { children, data } = $props();
 
-    let { children } = $props();
+    hotkeys("ctrl+s", function (event) {
+        event.preventDefault();
+        window.dispatchEvent(new CustomEvent("action:apply"));
+    });
+    console.log("hotkeys registered");
+    $effect(() => {
+        plgsInfo.set(data.plgsInfo);
+    });
+    $inspect($plgsInfo);
 </script>
 
 <ModeWatcher />
-<Sidebar.Provider>
-    <AppSidebar />
-    <Sidebar.Inset>
-        <header
-            class="flex h-12 shrink-0 items-center justify-between px-2 pt-1"
-        >
-            <div class="flex items-center shrink-0 gap-2">
-                <Sidebar.Trigger />
-                <Separator
-                    orientation="vertical"
-                    class="mx-2 data-[orientation=vertical]:h-4"
-                />
-                <h1 class="font-bold">主页</h1>
+<Toaster position="top-right" richColors closeButton />
+<DelDialog />
+<CloneDialog />
+{#if !isLogin()}
+    {#if data.isRegistered}
+        <LoginDialog />
+    {:else}
+        <SignupDialog />
+    {/if}
+{/if}
+<Sidebar.Provider class="h-full">
+    <AppSidebar pluginsInfo={$plgsInfo} />
+    <Sidebar.Inset class="overflow-auto h-full">
+        <Header />
+        <div class="w-full px-2 pb-2 h-[calc(100%-var(--spacing)*12)]">
+            <div class="border rounded-md w-full h-full overflow-hidden">
+                {@render children?.()}
             </div>
-
-            <div class="flex items-center shrink-0 gap-2">
-                <ActionBar />
-                <Separator
-                    orientation="vertical"
-                    class="mx-2 data-[orientation=vertical]:h-4"
-                />
-                <DarkToggle />
-            </div>
-        </header>
-        <div class="w-full h-full px-2 pb-2">
-            <main class="border rounded-md w-full h-full"></main>
-            {@render children?.()}
         </div>
     </Sidebar.Inset>
 </Sidebar.Provider>

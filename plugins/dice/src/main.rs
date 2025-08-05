@@ -8,7 +8,7 @@ use nom::{
     combinator::{eof, map_res, opt, value},
 };
 use sithra_kit::{
-    plugin::Plugin,
+    plugin,
     server::extract::payload::Payload,
     types::{
         message::{Message, SendMessage, common::CommonSegment as H},
@@ -19,7 +19,7 @@ use thiserror::Error;
 
 #[tokio::main]
 async fn main() {
-    let (plugin, _) = Plugin::new::<()>().await.unwrap();
+    let (plugin, _) = plugin!();
     let plugin = plugin.map(|r| r.route_typed(Message::on(dice)));
     log::info!("Dice plugin started");
     tokio::select! {

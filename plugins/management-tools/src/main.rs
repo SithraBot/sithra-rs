@@ -3,10 +3,9 @@ use std::{
     time::Duration,
 };
 
-use schemars::JsonSchema;
 use serde::Deserialize;
 use sithra_kit::{
-    plugin::Plugin,
+    plugin,
     server::{
         extract::{
             botid::BotId,
@@ -26,7 +25,7 @@ use sithra_kit::{
 };
 use triomphe::Arc;
 
-#[derive(Debug, Clone, Default, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Default, Deserialize)]
 struct Config {
     #[serde(default)]
     admins: Vec<String>,
@@ -46,7 +45,7 @@ impl Clientful for AppState {
 
 #[tokio::main]
 async fn main() {
-    let (plugin, Initialize { config, .. }) = Plugin::new::<Config>().await.unwrap();
+    let (plugin, Initialize { config, .. }) = plugin!(Config);
 
     let client = plugin.server.client();
 

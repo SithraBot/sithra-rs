@@ -2,9 +2,10 @@ use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 use sithra_transport::{Value, ValueError};
+use thiserror::Error;
 
 #[derive(Deserialize, Serialize)]
-pub struct Initialize<C> {
+pub struct Initialize<C = ()> {
     pub config:    C,
     pub id:        String,
     pub data_path: String,
@@ -30,6 +31,26 @@ where
     pub fn from_value(value: Value) -> Result<Self, ValueError> {
         let this = sithra_transport::from_value(value)?;
         Ok(this)
+    }
+}
+
+pub type InitializeResult = Result<(), PluginInitError>;
+
+#[derive(Debug, Error, Deserialize, Serialize)]
+pub enum PluginInitError {
+    #[error("Failed to deserialize config: {0}")]
+    ConfigDeserializeError(String),
+    #[error("Connection closed")]
+    ConnectionClosed,
+    #[error("Failed to serialize schema: {0}")]
+    JsonSerializationError(String),
+    #[error("Failed to deserialize init pack: {0}")]
+    InitPackDeserializeError(String),
+}
+
+impl From<serde_json::Error> for PluginInitError {
+    fn from(value: serde_json::Error) -> Self {
+        Self::JsonSerializationError(format!("{value}"))
     }
 }
 

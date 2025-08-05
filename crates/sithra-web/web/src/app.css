@@ -4,6 +4,12 @@
 
 @custom-variant dark (&:is(.dark *));
 
+html,
+body,
+#app {
+    @apply h-full w-full;
+}
+
 :root {
     --radius: 0.625rem;
     --background: hsl(220, 23%, 95%);

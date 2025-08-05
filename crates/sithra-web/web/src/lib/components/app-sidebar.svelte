@@ -5,8 +5,15 @@
     import Trash from "@lucide/svelte/icons/trash";
     import Ellipsis from "@lucide/svelte/icons/ellipsis";
     import Copy from "@lucide/svelte/icons/copy";
+    import PenLine from "@lucide/svelte/icons/pen-line";
     import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index";
     import * as Sidebar from "$lib/components/ui/sidebar/index";
+    import type { PluginInfo } from "$lib/api/info";
+    import { beforeNavigate } from "$app/navigation";
+    import {} from "$lib/components/action-bar.svelte";
+    import { onMount } from "svelte";
+    import { Input } from "$lib/components/ui/input/index.js";
+    const { pluginsInfo }: { pluginsInfo: PluginInfo[] } = $props();
 
     // Menu items.
     const mainItems = [
@@ -17,18 +24,27 @@
         },
     ];
 
-    const pluginItems = [
-        {
-            title: "插件1",
-            url: "#",
+    console.debug(pluginsInfo);
+    const pluginItems = $derived(
+        pluginsInfo.map((plugin) => ({
+            title: plugin.id,
+            id: plugin.id,
+            url: `/plugin/${plugin.id}`,
             icon: Boxes,
-        },
-        {
-            title: "插件2",
-            url: "#",
-            icon: Boxes,
-        },
-    ];
+        })),
+    );
+
+    let currentPathName = $state("/");
+    onMount(() => {
+        currentPathName = window.location.pathname;
+    });
+    beforeNavigate((navigation) => {
+        console.debug(navigation);
+        let pathname = navigation.to?.url.pathname;
+        if (pathname) {
+            currentPathName = pathname;
+        }
+    });
 </script>
 
 <Sidebar.Root variant="floating" class="pr-0">
@@ -39,7 +55,9 @@
                 <Sidebar.Menu>
                     {#each mainItems as item (item.title)}
                         <Sidebar.MenuItem>
-                            <Sidebar.MenuButton isActive>
+                            <Sidebar.MenuButton
+                                isActive={item.url === currentPathName}
+                            >
                                 {#snippet child({ props })}
                                     <a href={item.url} {...props}>
                                         <item.icon />
@@ -59,9 +77,11 @@
             </Sidebar.GroupAction>
             <Sidebar.GroupContent>
                 <Sidebar.Menu>
-                    {#each pluginItems as item (item.title)}
+                    {#each pluginItems as item (item.id)}
                         <Sidebar.MenuItem>
-                            <Sidebar.MenuButton>
+                            <Sidebar.MenuButton
+                                isActive={item.url === currentPathName}
+                            >
                                 {#snippet child({ props })}
                                     <a href={item.url} {...props}>
                                         <item.icon />
@@ -81,13 +101,40 @@
                                     side="right"
                                     align="start"
                                 >
-                                    <DropdownMenu.Item>
+                                    <DropdownMenu.Item
+                                        onclick={() => {
+                                            window.dispatchEvent(
+                                                new CustomEvent(
+                                                    "action:delete",
+                                                    {
+                                                        detail: {
+                                                            id: item.id,
+                                                        },
+                                                    },
+                                                ),
+                                            );
+                                        }}
+                                    >
                                         <Trash />
                                         <span>删除实例</span>
                                     </DropdownMenu.Item>
-                                    <DropdownMenu.Item>
+                                    <DropdownMenu.Item
+                                        onclick={() => {
+                                            window.dispatchEvent(
+                                                new CustomEvent("action:copy", {
+                                                    detail: {
+                                                        id: item.id,
+                                                    },
+                                                }),
+                                            );
+                                        }}
+                                    >
                                         <Copy />
                                         <span>创建副本</span>
+                                    </DropdownMenu.Item>
+                                    <DropdownMenu.Item>
+                                        <PenLine />
+                                        <span>重命名</span>
                                     </DropdownMenu.Item>
                                 </DropdownMenu.Content>
                             </DropdownMenu.Root>

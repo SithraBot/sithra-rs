@@ -22,12 +22,11 @@ smallvec = { version = "1", features = ["const_generics", "serde"] }
 matchit = { version = "0.8" }
 triomphe = { version = "0.1" }
 typeshare = { version = "1" }
-log = { version = "0.4", features = ["serde"] }
+log = { version = "0.4", features = ["serde", "kv", "kv_std", "kv_serde"] }
 once_cell = { version = "1.21" }
 ahash = { version = "0.8" }
 serde_json = { version = "1" }
 itertools = { version = "0.14" }
-schemars = { version = "1" }
 
 # Workspace
 

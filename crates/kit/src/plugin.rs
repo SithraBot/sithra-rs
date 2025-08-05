@@ -1,15 +1,17 @@
-use std::{env, io::stdout, process};
+use std::{env, process};
 
-use futures_util::StreamExt;
-use schemars::JsonSchema;
+use futures_util::{SinkExt as _, StreamExt};
 use serde::Deserialize;
 use sithra_server::{
     routing::router::Router,
     server::{Server, ServerError},
-    transport::{peer::Peer, util::FramedPeer},
+    transport::{
+        datapack::{DataPack, RequestDataPack},
+        peer::Peer,
+        util::FramedPeer,
+    },
 };
-use sithra_types::initialize::Initialize;
-use thiserror::Error;
+use sithra_types::initialize::{Initialize, InitializeResult, PluginInitError};
 use tokio::task::JoinSet;
 
 use crate::logger::init_log;
@@ -20,27 +22,42 @@ pub struct Plugin {
     router:     Router,
 }
 
+fn handle_options(version: &str, name: &str) -> bool {
+    handle_version(env::args(), version) || handle_name(env::args(), name)
+}
+
+fn handle_version(mut args: impl Iterator<Item = String>, version: &str) -> bool {
+    let is_get_version = args.any(|arg| arg.trim().eq("--version"));
+    if is_get_version {
+        print!("{version}");
+        return true;
+    }
+    false
+}
+
+fn handle_name(mut args: impl Iterator<Item = String>, name: &str) -> bool {
+    let is_get_name = args.any(|arg| arg.trim().eq("--name"));
+    if is_get_name {
+        print!("{name}");
+        return true;
+    }
+    false
+}
+
 impl Plugin {
     /// # Errors
     /// - [`PluginInitError::DeserializationError`] if the config could not be
     ///   deserialized.
     /// - [`PluginInitError::ConnectionClosed`] if the connection was closed
     ///   before the config was received.
-    pub async fn new<Config>() -> Result<(Self, Initialize<Config>), PluginInitError>
+    ///
+    /// # Panics
+    /// - If the initialization response fails to send.
+    pub async fn new<Config>(version: &str, name: &str) -> (Self, Initialize<Config>)
     where
-        Config: for<'de> Deserialize<'de> + JsonSchema,
+        Config: for<'de> Deserialize<'de>,
     {
-        let is_get_schema = env::args().any(|arg| arg.trim().eq("--schema"));
-        if is_get_schema {
-            let schema_gen = schemars::generate::SchemaSettings::draft07()
-                .with(|c| {
-                    c.meta_schema = None;
-                    c.inline_subschemas = true;
-                    c.untagged_enum_variant_titles = true;
-                })
-                .into_generator();
-            let schema = schema_gen.into_root_schema_for::<Config>();
-            serde_json::to_writer(stdout(), &schema)?;
+        if handle_options(version, name) {
             process::exit(0);
         }
         let peer = Peer::new();
@@ -56,22 +73,46 @@ impl Plugin {
                 let is_init = msg.path.as_ref().is_some_and(|p| p == Initialize::<Config>::path());
                 if is_init {
                     let config = msg.payload::<Initialize<Config>>();
-                    break config.map_err(PluginInitError::DeserializationError);
+                    break config.map_err(PluginInitError::ConfigDeserializeError);
                 }
             }
-        }?;
+        };
+
+        let init = match init {
+            Ok(init) => init,
+            Err(err) => {
+                framed
+                    .send(
+                        DataPack::builder()
+                            .path(Initialize::<Config>::path())
+                            .build_with_payload(InitializeResult::Err(err)),
+                    )
+                    .await.ok();
+                tokio::signal::ctrl_c().await.ok();
+                process::exit(1);
+            }
+        };
 
         init_log(server.client().sink());
 
+        server
+            .client()
+            .send(
+                RequestDataPack::default()
+                    .path(Initialize::<Config>::path())
+                    .payload(InitializeResult::Ok(())),
+            )
+            .unwrap_or_else(|_| panic!("Failed to send initialization response: [{name}]"));
+
         let peer = framed.into_inner();
-        Ok((
+        (
             Self {
                 peer,
                 server,
                 router,
             },
             init,
-        ))
+        )
     }
 
     #[must_use]
@@ -121,12 +162,12 @@ impl Plugin {
     }
 }
 
-#[derive(Debug, Error)]
-pub enum PluginInitError {
-    #[error("Failed to deserialize config: {0}")]
-    DeserializationError(String),
-    #[error("Connection closed")]
-    ConnectionClosed,
-    #[error("Failed to serialize schema: {0}")]
-    JsonSerializationError(#[from] serde_json::Error),
+#[macro_export]
+macro_rules! plugin {
+    ($ty:ty) => {
+        $crate::plugin::Plugin::new::<$ty>(env!("CARGO_PKG_VERSION"), env!("CARGO_PKG_NAME")).await
+    };
+    () => {
+        $crate::plugin::Plugin::new::<()>(env!("CARGO_PKG_VERSION"), env!("CARGO_PKG_NAME")).await
+    };
 }

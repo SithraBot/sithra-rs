@@ -1,0 +1,1 @@
+export const path = "/api/del_plg";

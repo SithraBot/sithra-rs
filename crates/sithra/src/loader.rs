@@ -3,32 +3,36 @@ use std::{
     fmt::Display,
     fs, io,
     process::Stdio,
-    sync::{Arc, Mutex, Weak},
+    sync::{Arc, RwLock, Weak},
 };
 
 use ahash::HashMap;
 use futures_util::{SinkExt, StreamExt};
+use serde::{Deserialize, Serialize};
 use sithra_kit::{
     transport::{
         self, ValueError,
         datapack::{DataPack, DataPackCodec, DataPackCodecError},
         peer::{Peer, Reader, Writer},
     },
-    types::{initialize::Initialize, log::Log},
+    types::{
+        initialize::{Initialize, InitializeResult, PluginInitError},
+        log::Log,
+    },
 };
 use thiserror::Error;
 use tokio::{process::Command, sync::broadcast, task::JoinHandle};
 use tokio_util::codec::{FramedRead, FramedWrite};
 
-use crate::conf::Config;
+use crate::conf::{BaseConfig, Config};
 
-type JoinMap = Arc<Mutex<HashMap<String, (JoinHandle<()>, JoinHandle<()>)>>>;
-type JoinMapWeak = Weak<Mutex<HashMap<String, (JoinHandle<()>, JoinHandle<()>)>>>;
+type JoinMap = Arc<RwLock<HashMap<String, (JoinHandle<()>, JoinHandle<()>)>>>;
+type JoinMapWeak = Weak<RwLock<HashMap<String, (JoinHandle<()>, JoinHandle<()>)>>>;
 
 pub struct Loader {
     // dirty:         watch::Sender<bool>,
     // clean_loop:    JoinHandle<()>,
-    config:        Config,
+    pub config:    Config,
     broadcast_tx:  broadcast::Sender<DataPack>,
     _broadcast_rx: broadcast::Receiver<DataPack>,
     join_map:      JoinMap,
@@ -49,7 +53,7 @@ impl Entry {
         let Some(map) = self.join_map.upgrade() else {
             return;
         };
-        let Some((jh1, jh2)) = map.lock().unwrap().remove(&self.key) else {
+        let Some((jh1, jh2)) = map.write().unwrap().remove(&self.key) else {
             return;
         };
         jh1.abort();
@@ -57,11 +61,28 @@ impl Entry {
     }
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+pub struct PluginInfo {
+    id:      String,
+    running: bool,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct PluginDetails {
+    id:       String,
+    name:     String,
+    version:  String,
+    #[serde(flatten)]
+    config:   BaseConfig,
+    toml_str: Option<String>,
+    running:  bool,
+}
+
 impl Loader {
     #[must_use]
     pub fn new(config: Config) -> Self {
         let (broadcast_tx, broadcast_rx) = broadcast::channel(32);
-        let join_map = Arc::new(Mutex::new(HashMap::default()));
+        let join_map = Arc::new(RwLock::new(HashMap::default()));
         // let (tx, rx) = watch::channel(false);
 
         Self {
@@ -72,6 +93,51 @@ impl Loader {
             _broadcast_rx: broadcast_rx,
             join_map,
         }
+    }
+
+    /// # Panics
+    /// Panics if the loader is dropped while plugins are still running.
+    #[must_use]
+    pub fn plugins(&self) -> Vec<PluginInfo> {
+        let mut plugins = Vec::new();
+        let join_map = self.join_map.read().unwrap();
+        for (id, _) in self.config.iter() {
+            plugins.push(PluginInfo {
+                id:      id.to_owned(),
+                running: join_map.contains_key(id),
+            });
+        }
+        plugins
+    }
+
+    /// Returns the details of a plugin.
+    /// # Panics
+    /// Panics if the lock is poisoned.
+    pub async fn plugin_details(&self, id: &str) -> Option<PluginDetails> {
+        let config = self.config.get(id)?;
+        let name = Command::new(&config.path).arg("--name").output().await.ok()?;
+        if !name.status.success() {
+            return None;
+        }
+        let name = String::from_utf8(name.stdout).ok()?;
+        let version = Command::new(&config.path).arg("--version").output().await.ok()?;
+        if !version.status.success() {
+            return None;
+        }
+        let doc = if let Some(ref raw_config) = config.raw_config {
+            Some(raw_config.to_string())
+        } else {
+            self.config.doc.get(id).and_then(|v| v.get("config")).map(ToString::to_string)
+        };
+        let version = String::from_utf8(version.stdout).ok()?;
+        Some(PluginDetails {
+            id: id.to_owned(),
+            name,
+            version,
+            config: config.clone(),
+            toml_str: doc,
+            running: self.join_map.read().unwrap().contains_key(id),
+        })
     }
 
     // async fn clean_loop(
@@ -92,7 +158,7 @@ impl Loader {
     //         tx.send(false).ok();
     //     }
     // }
-    pub async fn load_all(&mut self) -> Vec<(String, LoaderError)> {
+    pub async fn load_all(&self) -> Vec<(String, LoaderError)> {
         let mut errs = Vec::new();
         for id in self.config.keys_enabled() {
             if let Err(err) = self.load(id).await {
@@ -106,16 +172,22 @@ impl Loader {
     ///
     /// # Panics
     /// - If the lock is poisoned
-    pub async fn load(&self, id: &str) -> Result<(), LoaderError> {
+    pub async fn load(&self, id: &str) -> Result<bool, LoaderError> {
         let Some(config) = self.config.get(id) else {
             return Err(LoaderError::PluginConfigDoesNotExist(id.to_owned()));
         };
+        if !config.enable {
+            return Ok(false);
+        }
+        if self.join_map.read().unwrap().contains_key(id) {
+            return Ok(true);
+        }
         let path = std::env::current_dir()?.join("data");
-        log::info!("Loading {id}");
+        log::info!("loading [{id}]");
         let broadcast_tx = self.broadcast_tx.clone();
         let broadcast_rx = broadcast_tx.subscribe();
         let peer = run(&config.path, &config.args)?;
-        let (mut write, read) = split_peer(peer);
+        let (mut write, mut read) = split_peer(peer);
         let config_data = transport::to_value(config.config.clone())?;
         let data_path = path.join(id);
         fs::create_dir_all(&data_path)?;
@@ -127,14 +199,27 @@ impl Loader {
         let init_package = init_datapack(config_data, id, data_path);
         let raw = init_package.serialize_to_raw()?;
         write.send(raw).await?;
+        Self::next_init_pack(&mut read).await?;
         let entry = Entry::new(Arc::downgrade(&self.join_map), id.to_owned());
         let join_handle1 = tokio::spawn(Self::write_loop(write, broadcast_rx, entry.clone()));
         let join_handle2 = tokio::spawn(Self::read_loop(read, broadcast_tx, entry));
         self.join_map
-            .lock()
+            .write()
             .unwrap()
             .insert(id.to_owned(), (join_handle1, join_handle2));
-        Ok(())
+        Ok(true)
+    }
+
+    async fn next_init_pack(read: &mut FramedRead<Reader, DataPackCodec>) -> InitializeResult {
+        while let Some(res) = read.next().await {
+            if let Ok(res) = res {
+                let matched = res.path.as_ref().map(|v| v == Initialize::<()>::path());
+                if matched == Some(true) {
+                    return res.payload().map_err(PluginInitError::InitPackDeserializeError)?;
+                }
+            }
+        }
+        Err(PluginInitError::ConnectionClosed)
     }
 
     async fn write_loop(
@@ -192,17 +277,18 @@ impl Loader {
     /// # Panics
     /// - If the lock is poisoned
     pub fn abort(&self, id: &str) {
-        let Some((join_handle1, join_handle2)) = self.join_map.lock().unwrap().remove(id) else {
+        let Some((join_handle1, join_handle2)) = self.join_map.write().unwrap().remove(id) else {
             return;
         };
         join_handle1.abort();
         join_handle2.abort();
+        log::info!("[{id}] stopped");
     }
 
     /// # Panics
     /// - If the lock is poisoned
     pub fn abort_all(&self) {
-        for (_, (join_handle1, join_handle2)) in self.join_map.lock().unwrap().drain() {
+        for (_, (join_handle1, join_handle2)) in self.join_map.write().unwrap().drain() {
             join_handle1.abort();
             join_handle2.abort();
         }
@@ -230,6 +316,8 @@ pub enum LoaderError {
     PostError(#[from] transport::EncodeError),
     #[error("Failed to start Plugin with Init error: {0}")]
     InitError(#[from] DataPackCodecError),
+    #[error("{0}")]
+    PluginInitError(#[from] PluginInitError),
 }
 
 fn run<P, I, S>(path: P, args: I) -> Result<Peer, io::Error>
@@ -283,13 +371,7 @@ fn map_log(data: DataPack) -> Option<DataPack> {
         return Some(data);
     };
 
-    let Log {
-        level,
-        message,
-        target,
-    } = payload;
-
-    log::log!(target: target.as_str(), level, "{message}");
+    payload.log();
 
     None
 }

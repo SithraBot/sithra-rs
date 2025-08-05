@@ -1,5 +1,5 @@
 use sithra_kit::{
-    plugin::Plugin,
+    plugin,
     server::{
         extract::{payload::Payload, state::State},
         router,
@@ -25,7 +25,7 @@ struct AppState {
 
 #[tokio::main]
 async fn main() {
-    let (plugin, Initialize { config, .. }) = Plugin::new::<BaseXMap>().await.unwrap();
+    let (plugin, Initialize { config, .. }) = plugin!(BaseXMap);
     let state = AppState { map: config };
     let plugin = plugin.map(move |r| {
         router!(r =>

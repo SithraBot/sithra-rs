@@ -12,7 +12,6 @@ once_cell = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 thiserror = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
-schemars = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 
 # Workspace dependencies
@@ -29,5 +28,5 @@ default = ["layers", "logger", "initialize", "plugin", "macros"]
 layers = ["tower", "pin-project", "futures-util"]
 logger = ["log", "once_cell"]
 initialize = ["futures-util"]
-plugin = ["serde", "thiserror", "tokio", "schemars", "serde_json", "macros"]
+plugin = ["serde", "thiserror", "tokio", "serde_json", "macros"]
 macros = ["sithra-kit-macros"]

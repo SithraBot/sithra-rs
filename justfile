@@ -16,6 +16,7 @@ run:
 run_web:
     (cd crates/sithra-web/web && npm run build)
     cargo build --all
+    rm -rf web
     cp -rf crates/sithra-web/web/build web
     cargo run -psithra-web
 
@@ -24,3 +25,6 @@ build_linux_x86_64:
 
 init:
     (cd crates/sithra-web/web && npm install)
+
+web_dev:
+    (cd crates/sithra-web/web && npm run dev) & (cargo build --all && env SITHRA_LOG=debug cargo run -psithra-web -- --api-only) & wait

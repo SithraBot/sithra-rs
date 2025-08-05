@@ -9,7 +9,6 @@ tokio.workspace = true
 log.workspace = true
 serde.workspace = true
 thiserror.workspace = true
-schemars.workspace = true
 
 [lints]
 workspace = true

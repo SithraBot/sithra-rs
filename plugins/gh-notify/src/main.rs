@@ -1,8 +1,7 @@
 use axum::Router;
-use schemars::JsonSchema;
 use serde::Deserialize;
 use sithra_kit::{
-    plugin::Plugin,
+    plugin,
     server::server::Client,
     transport::channel::{Channel, ChannelType},
     types::initialize::Initialize,
@@ -14,7 +13,7 @@ mod webhook;
 
 use webhook::webhook;
 
-#[derive(Deserialize, JsonSchema)]
+#[derive(Deserialize)]
 struct Config {
     /// # webhook 端口
     port:     u16,
@@ -26,7 +25,7 @@ struct Config {
     channels: Vec<ChannelConfig>,
 }
 
-#[derive(Deserialize, JsonSchema)]
+#[derive(Deserialize)]
 struct ChannelConfig {
     /// # 机器人ID
     #[serde(rename = "bot-id")]
@@ -36,7 +35,7 @@ struct ChannelConfig {
     kind:   ChannelKind,
 }
 
-#[derive(Deserialize, JsonSchema)]
+#[derive(Deserialize)]
 #[serde(rename_all = "lowercase")]
 enum ChannelKind {
     /// # 群组频道
@@ -84,7 +83,7 @@ struct AppState {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let (plugin, Initialize { config, .. }) = Plugin::new::<Config>().await.unwrap();
+    let (plugin, Initialize { config, .. }) = plugin!(Config);
 
     let state = AppState {
         channels: config.channels.into_iter().map(<(Channel, String)>::from).collect(),
@@ -95,11 +94,11 @@ async fn main() -> anyhow::Result<()> {
     let app: Router =
         Router::new().route("/webhook", axum::routing::post(webhook)).with_state(state);
 
-    let listener = TcpListener::bind((config.host, config.port)).await?;
+    let listener = TcpListener::bind((config.host.as_str(), config.port)).await?;
 
     let serve = axum::serve(listener, app);
 
-    log::info!("Github notify plugin started");
+    log::info!(port = config.port, host = config.host; "Github notify plugin started");
     tokio::select! {
         _ = plugin.run().join_all() => {}
         _ = tokio::signal::ctrl_c() => {}
