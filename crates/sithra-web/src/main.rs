@@ -141,8 +141,8 @@ async fn authorize(Json(request): Json<Claims>) -> Result<String, AuthError> {
     Ok(token)
 }
 
-async fn verify(_auth: Auth, Json(request): Json<String>) -> String {
-    request
+async fn verify(_auth: Auth) -> &'static str {
+    "ok"
 }
 
 async fn plgs_info(State(state): State<AppState>) -> impl IntoResponse {

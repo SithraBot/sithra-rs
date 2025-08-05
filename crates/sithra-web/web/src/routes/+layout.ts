@@ -8,7 +8,7 @@ export const prerender = true;
 
 export async function load({ fetch }): Promise<Data> {
   if (isLogin()) {
-    console.log("验证登陆")
+    console.log("验证登陆");
     const verify = await fetch("/auth/verify", {
       headers: {
         ...authHeader(),

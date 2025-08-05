@@ -83,7 +83,7 @@
                                 isActive={item.url === currentPathName}
                             >
                                 {#snippet child({ props })}
-                                    <a href={item.url} {...props}>
+                                    <a href={item.url} data-sveltekit-preload-data="tap" {...props}>
                                         <item.icon />
                                         <span>{item.title}</span>
                                     </a>
