@@ -8,7 +8,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::{delete, get, post},
+    routing::{delete, get, get_service, post},
 };
 use clap::Parser as _;
 use jsonwebtoken::Header;
@@ -80,9 +80,13 @@ async fn main() -> anyhow::Result<()> {
     if !args.api_only() {
         let path = std::path::Path::new(&args.web_path("web")).to_owned();
         let index = path.join("index.html");
+        let app_dir = path.join("_app");
+        let html404 = path.join("404.html");
+        let icon = path.join("icon.png");
         router = router
-            .route_service("/{*any}", ServeFile::new(index))
-            .fallback_service(ServeDir::new(path));
+            .nest_service("/_app", get_service(ServeDir::new(app_dir)))
+            .route("/icon.png", get_service(ServeFile::new(icon)))
+            .fallback(get_service(ServeFile::new(index)).fallback_service(ServeFile::new(html404)));
     }
     let router = router.with_state(state);
     let addr = args.addr((DEFAULT_HOST, DEFAULT_PORT));

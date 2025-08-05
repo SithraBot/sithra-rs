@@ -23,6 +23,12 @@ run_web:
 build_linux_x86_64:
     cargo build --all -r --target x86_64-unknown-linux-musl
 
+build_web:
+    (cd crates/sithra-web/web && npm run build)
+    cargo build --all
+    rm -rf web
+    cp -rf crates/sithra-web/web/build web
+
 init:
     (cd crates/sithra-web/web && npm install)
 
