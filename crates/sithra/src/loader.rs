@@ -358,7 +358,7 @@ fn init_datapack<D1: Display, D2: Display>(
     data_path: D2,
 ) -> DataPack {
     let init = Initialize::new(conf, name, data_path);
-    DataPack::builder().payload(init).path("/initialize").build()
+    DataPack::builder().payload(&init).path("/initialize").build()
 }
 
 fn map_log(data: DataPack) -> Option<DataPack> {

@@ -6,7 +6,7 @@ macro_rules! into_response {
             fn into_response(self) -> $crate::__private::sithra_server::response::Response {
                 $crate::__private::sithra_transport::datapack::RequestDataPack::default()
                     .path($path)
-                    .payload(self)
+                    .payload(&self)
                     .into_response()
             }
         }
@@ -17,11 +17,13 @@ macro_rules! into_response {
 #[doc(hidden)]
 macro_rules! into_request {
     ($path:expr, $type:ty) => {
-        impl ::std::convert::From<$type>
+        impl ::std::convert::TryFrom<$type>
             for $crate::__private::sithra_transport::datapack::RequestDataPack
         {
-            fn from(value: $type) -> Self {
-                Self::default().path($path).payload(value)
+            type Error = $crate::__private::sithra_transport::EncodeError;
+
+            fn try_from(value: $type) -> Result<Self, Self::Error> {
+                Self::default().path($path).payload(&value)
             }
         }
     };

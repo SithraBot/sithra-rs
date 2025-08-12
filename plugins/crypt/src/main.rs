@@ -7,7 +7,7 @@ use sithra_kit::{
     types::{
         initialize::Initialize,
         message::{Message, Segments, SendMessage, common::CommonSegment as H},
-        smsg,
+        msg,
     },
 };
 
@@ -69,7 +69,7 @@ async fn encrypt(
             }
         })
         .collect();
-    Some(smsg!(content))
+    Some(msg!(content))
 }
 
 async fn decrypt(
@@ -97,5 +97,5 @@ async fn decrypt(
             }
         })
         .collect();
-    Some(smsg!(content))
+    Some(msg!(content))
 }

@@ -2,7 +2,7 @@ use sithra_kit::{
     server::extract::payload::Payload,
     types::{
         message::{Message, Segments, SendMessage, common::CommonSegment as H},
-        smsg,
+        msg,
     },
 };
 
@@ -29,7 +29,7 @@ pub async fn p1(Payload(msg): Payload<Message<H>>) -> Option<SendMessage> {
             }
         })
         .collect();
-    Some(smsg!(content))
+    Some(msg!(content))
 }
 
 pub async fn s1(Payload(msg): Payload<Message<H>>) -> Option<SendMessage> {
@@ -55,5 +55,5 @@ pub async fn s1(Payload(msg): Payload<Message<H>>) -> Option<SendMessage> {
             }
         })
         .collect();
-    Some(smsg!(content))
+    Some(msg!(content))
 }

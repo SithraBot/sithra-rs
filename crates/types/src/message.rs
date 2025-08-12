@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, ops::Deref};
 
 use serde::{Deserialize, Serialize};
 use sithra_server::{
@@ -18,7 +18,21 @@ pub type Segments<Seg> = SmallVec<[Seg; 1]>;
 pub struct Message<Seg = Segment> {
     pub id:      String,
     #[typeshare(serialized_as = "Vec<Seg>")]
-    pub content: SmallVec<[Seg; 1]>,
+    pub content: Segments<Seg>,
+}
+
+impl<Seg> Deref for Message<Seg> {
+    type Target = Segments<Seg>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.content
+    }
+}
+
+impl<Seg> AsRef<[Seg]> for Message<Seg> {
+    fn as_ref(&self) -> &[Seg] {
+        &self.content
+    }
 }
 
 #[typeshare]
@@ -78,7 +92,7 @@ impl From<&str> for Segment {
 }
 
 #[macro_export]
-macro_rules! msg {
+macro_rules! seg {
     ($seg:ident[$($segment:ident$(: $value:expr)?),*$(,)?]) => {
         [
             $(
@@ -88,13 +102,67 @@ macro_rules! msg {
     };
 }
 
+/// Create a [`SendMessage`].
+///
+/// This macro provides a convenient way to construct a [`SendMessage`]
+/// instance, which can then be sent as a reply or a direct message.
+///
+/// # Examples
+///
+/// **From segments**
+///
+/// Create a message from a sequence of segments. This is the most flexible
+/// way to create complex messages. You can use either the base [`Segment`]
+/// or the type-safe [`common::CommonSegment`] enum.
+///
+/// ```rust,ignore
+/// use sithra_message::{msg, message::{Segment, common::CommonSegment}};
+///
+/// // Using the base `Segment` type
+/// let msg1 = msg!(Segment[
+///     text: "Hello, world!",
+///     image: "https://example.com/image.png"
+/// ]);
+///
+/// // Using the `CommonSegment` enum for better type safety
+/// let msg2 = msg!(CommonSegment[
+///     text: "This is a common segment.",
+///     at: "12345"
+/// ]);
+/// ```
+///
+/// **From a single value**
+///
+/// A single value that implements `Into<SendMessage>` (like `&str` or `String`)
+/// can be used to create a simple text message.
+///
+/// ```rust,ignore
+/// use sithra_message::msg;
+///
+/// let msg = msg!("A simple text message.");
+/// ```
+///
+/// **With formatting**
+///
+/// The macro supports `format!`-like syntax for creating formatted text
+/// messages. This is a convenient shorthand for `msg!(format!(...))`.
+///
+/// ```rust,ignore
+/// use sithra_message::msg;
+///
+/// let user = "Alice";
+/// let msg = msg!(f "Hello, {}!", user);
+/// ```
 #[macro_export]
-macro_rules! smsg {
+macro_rules! msg {
     ($seg:ident[$($segment:ident$(: $value:expr)?),*$(,)?]) => {
-        $crate::message::SendMessage::from($crate::msg!($seg[$($segment$(: $value)?),*]))
+        $crate::message::SendMessage::from($crate::seg!($seg[$($segment$(: $value)?),*]))
     };
     ($seg:expr) => {
        $crate::message::SendMessage::from($seg)
+    };
+    (f $fmt:literal $($arg:tt)*) => {
+        $crate::msg!(::std::format!($fmt, $($arg)*))
     }
 }
 
@@ -102,28 +170,28 @@ macro_rules! smsg {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SendMessage<Seg = Segment> {
     #[typeshare(serialized_as = "Vec<Seg>")]
-    pub content: SmallVec<[Seg; 1]>,
+    pub content: Segments<Seg>,
 }
 
 impl SendMessage {
     #[must_use]
-    pub fn new<Seg: Into<Segment>>(content: SmallVec<[Seg; 1]>) -> Self {
+    pub fn new<Seg: Into<Segment>>(content: Segments<Seg>) -> Self {
         Self {
             content: content.into_iter().map(Into::into).collect(),
         }
     }
 }
 
-// impl<Seg: Into<Segment>> From<SmallVec<[Seg; 1]>> for SendMessage {
-//     fn from(content: SmallVec<[Seg; 1]>) -> Self {
+// impl<Seg: Into<Segment>> From<Segments<Seg>> for SendMessage {
+//     fn from(content: Segments<Seg>) -> Self {
 //         Self {
 //             content: content.into_iter().map(Into::into).collect(),
 //         }
 //     }
 // }
 
-impl<Seg: TryInto<Segment>> From<SmallVec<[Seg; 1]>> for SendMessage {
-    fn from(content: SmallVec<[Seg; 1]>) -> Self {
+impl<Seg: TryInto<Segment>> From<Segments<Seg>> for SendMessage {
+    fn from(content: Segments<Seg>) -> Self {
         Self {
             content: content.into_iter().filter_map(|seg| seg.try_into().ok()).collect(),
         }
@@ -161,7 +229,7 @@ impl<D1: Display, D2: Display> From<Result<D1, D2>> for SendMessage {
 pub trait ContextExt {
     fn reply(
         &self,
-        msg: impl Into<SendMessage>,
+        msg: &SendMessage,
     ) -> impl Future<Output = Result<Message, PostError>>;
 }
 
@@ -170,14 +238,14 @@ where
     S: Clientful + Send + Sync,
     T: for<'de> Deserialize<'de> + Send + Sync,
 {
-    async fn reply(&self, msg: impl Into<SendMessage>) -> Result<Message, PostError> {
+    async fn reply(&self, msg: &SendMessage) -> Result<Message, PostError> {
         let datapack = self
             .client()
             .post(
                 RequestDataPack::default()
                     .path("/command/message.create")
                     .channel_opt(self.request.channel())
-                    .payload(msg.into()),
+                    .payload(msg),
             )?
             .await?;
         let msg = datapack.payload::<Message>()?;
@@ -189,7 +257,7 @@ pub trait ClientfulExt {
     fn send_message(
         &self,
         channel: impl Into<Channel> + Send + Sync,
-        msg: impl Into<SendMessage> + Send + Sync,
+        msg: &SendMessage,
     ) -> impl Future<Output = Result<Message, PostError>> + Send + Sync;
 }
 
@@ -200,7 +268,7 @@ where
     async fn send_message(
         &self,
         channel: impl Into<Channel> + Send + Sync,
-        msg: impl Into<SendMessage> + Send + Sync,
+        msg: &SendMessage,
     ) -> Result<Message, PostError> {
         let datapack = self
             .client()
@@ -208,7 +276,7 @@ where
                 RequestDataPack::default()
                     .path("/command/message.create")
                     .channel(channel.into())
-                    .payload(msg.into()),
+                    .payload(msg),
             )?
             .await?;
         let msg = datapack.payload::<Message>()?;
@@ -362,7 +430,7 @@ mod tests {
 
     async fn on_message(ctx: Context<Message>) -> Result<(), PostError> {
         let _msg: &Message = ctx.payload();
-        ctx.reply(msg!(CommonSegment[
+        ctx.reply(&msg!(CommonSegment[
             text: &"Hello, world!",
             img: &"https://example.com/image.png"
         ]))
@@ -374,7 +442,7 @@ mod tests {
         state
             .send_message(
                 channel,
-                msg!(CommonSegment[
+                &msg!(CommonSegment[
                     text: "Hello, world!",
                     img: "https://example.com/image.png"
                 ]),
@@ -384,7 +452,7 @@ mod tests {
     }
 
     async fn on_message3(Payload(_msg): Payload<Message>) -> SendMessage {
-        msg!(CommonSegment[
+        seg!(CommonSegment[
             text: "Hello, world!",
             img: "https://example.com/image.png"
         ])

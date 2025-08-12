@@ -1,0 +1,18 @@
+[package]
+name = "simple-ai"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+sithra-kit.workspace = true
+tokio.workspace = true
+log.workspace = true
+serde.workspace = true
+triomphe.workspace = true
+ahash.workspace = true
+rig-core = { version = "0.17", default-features = false, features = [
+    "reqwest-rustls",
+] }
+
+[lints]
+workspace = true

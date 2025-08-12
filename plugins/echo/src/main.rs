@@ -3,7 +3,7 @@ use sithra_kit::{
     server::extract::payload::Payload,
     types::{
         message::{Message, SendMessage, common::CommonSegment as H},
-        smsg,
+        msg,
     },
 };
 
@@ -27,5 +27,5 @@ async fn echo(Payload(msg): Payload<Message<H>>) -> Option<SendMessage> {
         let first = content.first_mut()?;
         *first = H::text(&text);
     }
-    Some(smsg!(content))
+    Some(msg!(content))
 }

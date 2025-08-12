@@ -20,7 +20,7 @@ use sithra_kit::{
         channel::ContextExt as _,
         initialize::Initialize,
         message::{Message, SendMessage, common::CommonSegment as H},
-        smsg,
+        msg,
     },
 };
 use triomphe::Arc;
@@ -75,7 +75,7 @@ macro_rules! tap_err {
             Ok(ok) => ok,
             Err(err) => {
                 log::error!(concat!("Failed to ", $action, ": {:?}"), err);
-                return Some(smsg!(concat!($action, "失败喵，请通过错误日志查看具体信息喵")).into());
+                return Some(msg!(concat!($action, "失败喵，请通过错误日志查看具体信息喵")));
             }
         }
     };
@@ -107,7 +107,7 @@ async fn channelinfo(
         parent_id.unwrap_or_else(|| "无".to_owned()),
         bot_id.unwrap_or_else(|| "无".to_owned())
     );
-    Some(smsg!(info))
+    Some(msg!(info))
 }
 
 async fn mute(ctx: Context<Message<H>, AppState>) -> Option<SendMessage> {
@@ -115,26 +115,26 @@ async fn mute(ctx: Context<Message<H>, AppState>) -> Option<SendMessage> {
     let channel = ctx.request.channel()?;
     let (id, duration) = match args {
         Ok(ok) => ok,
-        Err(ParseErr::InvalidNumber) => return Some(smsg!("无效的数字喵")),
+        Err(ParseErr::InvalidNumber) => return Some(msg!("无效的数字喵")),
         Err(ParseErr::NotEnoughArgs) => {
-            return Some(smsg!("需要俩参数喵，用户ID和时长喵"));
+            return Some(msg!("需要俩参数喵，用户ID和时长喵"));
         }
         Err(ParseErr::NotMatch) => return None,
     };
 
     if channel.parent_id.is_none() {
-        return Some(smsg!("只能在群聊中使用喵"));
+        return Some(msg!("只能在群聊中使用喵"));
     }
 
     if !auth(&channel.id, &ctx.state.admins) {
-        return Some(smsg!("你没有权限喵"));
+        return Some(msg!("你没有权限喵"));
     }
 
     let is_unmute = duration.is_zero();
 
     let res = ctx.set_mute_member(id, duration).await;
     tap_err!(res, "禁言");
-    Some(smsg!(H [
+    Some(msg!(H [
         text: if is_unmute {"解禁成功喵 "} else {"禁言成功喵 "},
         at: id,
         text: if is_unmute {" 😎堂堂复活喵"} else {" 💀"},

@@ -117,7 +117,7 @@ pub struct DataPack {
     pub correlation: Ulid,
     pub channel:     Option<Channel>,
     #[serde(flatten)]
-    pub result:      DataResult,
+    pub result:      Result<Bytes, String>,
 }
 
 impl Default for DataPack {
@@ -127,7 +127,7 @@ impl Default for DataPack {
             path:        None,
             correlation: Ulid::new(),
             channel:     None,
-            result:      DataResult::Payload(crate::Value::Null),
+            result:      Ok(Bytes::new()),
         }
     }
 }
@@ -146,8 +146,16 @@ impl From<RequestDataPack> for DataPack {
             path: Some(path),
             correlation,
             channel,
-            result: DataResult::Payload(payload),
+            result: Ok(payload),
         }
+    }
+}
+
+impl<E> TryFrom<Result<RequestDataPack, E>> for DataPack {
+    type Error = E;
+
+    fn try_from(value: Result<RequestDataPack, E>) -> Result<Self, Self::Error> {
+        value.map(Into::into)
     }
 }
 
@@ -161,7 +169,15 @@ pub struct RequestDataPack {
     pub path:    String,
     correlation: Ulid,
     pub channel: Option<Channel>,
-    pub payload: crate::Value,
+    pub payload: Bytes,
+}
+
+impl<E> TryFrom<Result<Self, E>> for RequestDataPack {
+    type Error = E;
+
+    fn try_from(value: Result<Self, E>) -> Result<Self, Self::Error> {
+        value
+    }
 }
 
 impl Default for RequestDataPack {
@@ -172,7 +188,7 @@ impl Default for RequestDataPack {
             path:        String::new(),
             correlation: Ulid::new(),
             channel:     None,
-            payload:     crate::Value::Null,
+            payload:     Bytes::new(),
         }
     }
 }
@@ -205,15 +221,22 @@ impl RequestDataPack {
     }
 
     #[must_use]
-    pub fn payload_value(mut self, payload: impl Into<crate::Value>) -> Self {
+    pub fn payload_bytes(mut self, payload: impl Into<Bytes>) -> Self {
         self.payload = payload.into();
         self
     }
 
-    #[must_use]
-    pub fn payload<S: Serialize>(mut self, payload: S) -> Self {
-        self.payload = crate::to_value(payload).unwrap_or(crate::Value::Null);
-        self
+    /// Sets the payload of the `DataPack` using a serializable value.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if serialization fails.
+    pub fn payload<S: Serialize + ?Sized>(
+        mut self,
+        payload: &S,
+    ) -> Result<Self, rmp_serde::encode::Error> {
+        self.payload = crate::util::to_bytes(payload)?;
+        Ok(self)
     }
 
     #[must_use]
@@ -235,47 +258,6 @@ impl RequestDataPack {
     }
 }
 
-/// Represents the result of a data operation, either a payload or an error.
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub enum DataResult {
-    /// Successful operation with a payload value.
-    #[serde(rename = "payload")]
-    Payload(crate::Value),
-    /// Failed operation with an error message.
-    #[serde(rename = "error")]
-    Error(String),
-}
-
-/// Converts a `DataResult` into a standard `Result`.
-///
-/// - `Payload(v)` becomes `Ok(v)`
-/// - `Error(e)` becomes `Err(e)`
-impl From<DataResult> for Result<crate::Value, String> {
-    fn from(value: DataResult) -> Self {
-        match value {
-            DataResult::Payload(v) => Ok(v),
-            DataResult::Error(e) => Err(e),
-        }
-    }
-}
-
-/// Converts a standard `Result` into a `DataResult`.
-///
-/// - `Ok(payload)` becomes `Payload(payload.into())`
-/// - `Err(error)` becomes `Error(error.to_string())`
-impl<P, E> From<Result<P, E>> for DataResult
-where
-    P: Into<crate::Value>,
-    E: Display,
-{
-    fn from(value: Result<P, E>) -> Self {
-        match value {
-            Ok(payload) => Self::Payload(payload.into()),
-            Err(error) => Self::Error(error.to_string()),
-        }
-    }
-}
-
 /// A builder for constructing `DataPack` instances with optional fields.
 ///
 /// Provides a fluent interface for setting fields like `path`, `correlation`,
@@ -285,7 +267,7 @@ pub struct DataPackBuilder {
     pub path:        Option<String>,
     pub correlation: Option<Ulid>,
     pub channel:     Option<Channel>,
-    pub result:      Option<DataResult>,
+    pub result:      Option<Result<Bytes, String>>,
 }
 
 impl Default for DataPackBuilder {
@@ -336,7 +318,7 @@ impl DataPackBuilder {
 
     /// Sets the `result` field for the `DataPack`.
     #[must_use]
-    pub fn result(mut self, result: impl Into<DataResult>) -> Self {
+    pub fn result(mut self, result: impl Into<Result<Bytes, String>>) -> Self {
         self.result = Some(result.into());
         self
     }
@@ -358,7 +340,7 @@ impl DataPackBuilder {
 
         let correlation = correlation.unwrap_or_else(Ulid::new);
 
-        let result = result.unwrap_or(DataResult::Payload(crate::Value::Null));
+        let result = result.unwrap_or_else(|| Ok(Bytes::new()));
 
         DataPack {
             bot_id,
@@ -371,11 +353,11 @@ impl DataPackBuilder {
 
     /// Sets the `result` field to a `Payload` variant.
     #[must_use]
-    pub fn payload(mut self, payload: impl Serialize) -> Self {
-        let payload = crate::to_value(payload);
+    pub fn payload(mut self, payload: &impl Serialize) -> Self {
+        let payload = crate::util::to_bytes(payload);
         match payload {
             Ok(payload) => {
-                self.result = Some(DataResult::Payload(payload));
+                self.result = Some(Ok(payload));
             }
             Err(err) => {
                 return self.error(err);
@@ -387,17 +369,17 @@ impl DataPackBuilder {
     /// Sets the `result` field to an `Error` variant.
     #[must_use]
     pub fn error(mut self, error: impl Display) -> Self {
-        self.result = Some(DataResult::Error(error.to_string()));
+        self.result = Some(Err(error.to_string()));
         self
     }
 
     /// Builds a `DataPack` with a `Payload` result.
     #[must_use]
-    pub fn build_with_payload(mut self, payload: impl Serialize) -> DataPack {
-        let payload = crate::to_value(payload);
+    pub fn build_with_payload(mut self, payload: &impl Serialize) -> DataPack {
+        let payload = crate::util::to_bytes(payload);
         match payload {
             Ok(payload) => {
-                self.result = Some(DataResult::Payload(payload));
+                self.result = Some(Ok(payload));
             }
             Err(err) => {
                 return self.error(err).build();
@@ -435,10 +417,10 @@ impl DataPack {
     /// Returns an error if deserialization fails.
     pub fn payload<T: for<'de> Deserialize<'de>>(&self) -> Result<T, String> {
         let payload = match &self.result {
-            DataResult::Error(err) => return Err(err.clone()),
-            DataResult::Payload(payload) => payload.clone(),
+            Err(err) => return Err(err.clone()),
+            Ok(payload) => payload.clone(),
         };
-        crate::from_value(payload).map_err(|err| format!("{err}"))
+        rmp_serde::from_slice(&payload).map_err(|err| format!("{err}"))
     }
 
     /// Deserialize a `DataPack` from a byte slice.
@@ -511,13 +493,12 @@ impl DataPack {
             channel,
             result,
         } = self;
-        let payload: Result<_, _> = result.into();
         RequestDataPack {
             bot_id,
             path: path.unwrap_or_default(),
             correlation,
             channel,
-            payload: payload.unwrap_or(crate::Value::Null),
+            payload: result.unwrap_or_else(|_| Bytes::new()),
         }
     }
 }

@@ -321,3 +321,18 @@ async fn list_files(_auth: Auth, Json(request): Json<ListFiles>) -> Response {
         (StatusCode::NOT_FOUND, Json("not a directory")).into_response()
     }
 }
+
+#[test]
+fn _t() {
+    fn consume(_n: i32, _str: String) {}
+    let foo = vec![0; 10];
+    let mut iter = foo.into_iter();
+    let last = iter.next_back();
+    let bar = String::new();
+    for entry in iter {
+        consume(entry, bar.clone());
+    }
+    if let Some(last) = last {
+        consume(last, bar);
+    }
+}

@@ -56,7 +56,8 @@ impl RawEvent {
                     .path(Message::path())
                     .channel_opt(channel)
                     .bot_id(bot_id)
-                    .payload(message);
+                    .payload(&message)
+                    .ok()?;
                 Some(req.into())
             }
             _ => None,

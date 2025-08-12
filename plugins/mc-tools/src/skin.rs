@@ -3,7 +3,7 @@ use sithra_kit::{
     server::extract::payload::Payload,
     types::{
         message::{Message, SendMessage, common::CommonSegment as H},
-        smsg,
+        msg,
     },
 };
 
@@ -23,9 +23,9 @@ async fn handle_mc_command(id: &str, endpoint: &str, error_message: &str) -> Sen
     let id = id.trim();
     let url = format!("https://nmsr.nickac.dev/{endpoint}/{id}");
     if let Some(image) = get_image(&url).await {
-        smsg!(H[img: image])
+        msg!(H[img: image])
     } else {
-        smsg!(error_message)
+        msg!(error_message)
     }
 }
 

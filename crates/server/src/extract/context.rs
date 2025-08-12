@@ -6,7 +6,7 @@ use std::{
 use futures_util::FutureExt;
 use serde::Deserialize;
 use sithra_transport::{
-    ValueError,
+    DecodeError,
     datapack::{DataPack, RequestDataPack},
 };
 use triomphe::Arc;
@@ -64,7 +64,7 @@ where
     OuterState: Send + Sync,
     T: for<'de> Deserialize<'de>,
 {
-    type Rejection = Error<ValueError>;
+    type Rejection = Error<DecodeError>;
 
     async fn from_request(
         parts: Arc<RequestDataPack>,
@@ -128,11 +128,12 @@ where
     /// This method panics if there is a `Ulid` conflict for the request's
     /// correlation ID. This is extremely unlikely to happen in practice.
     #[allow(clippy::result_large_err)]
-    pub async fn post<TR: TypedRequest + Into<RequestDataPack> + Send + Sync>(
-        &self,
-        datapack: TR,
-    ) -> Result<TR::Response, PostError> {
-        let datapack: RequestDataPack = datapack.into();
+    pub async fn post<Error, TR>(&self, datapack: TR) -> Result<TR::Response, PostError>
+    where
+        Error: Into<PostError>,
+        TR: TypedRequest + TryInto<RequestDataPack, Error = Error> + Send + Sync,
+    {
+        let datapack: RequestDataPack = datapack.try_into().map_err(Into::into)?;
         let datapack = datapack.link(self.request.raw());
         let result = self.state.client().post(datapack);
         result

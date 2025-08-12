@@ -83,7 +83,7 @@ struct AppState {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let (plugin, Initialize { config, .. }) = plugin!(Config);
+    let (mut plugin, Initialize { config, .. }) = plugin!(Config);
 
     let state = AppState {
         channels: config.channels.into_iter().map(<(Channel, String)>::from).collect(),
@@ -94,7 +94,8 @@ async fn main() -> anyhow::Result<()> {
     let app: Router =
         Router::new().route("/webhook", axum::routing::post(webhook)).with_state(state);
 
-    let listener = TcpListener::bind((config.host.as_str(), config.port)).await?;
+    let listener = TcpListener::bind((config.host.as_str(), config.port)).await;
+    let listener = plugin.expect(listener).await;
 
     let serve = axum::serve(listener, app);
 

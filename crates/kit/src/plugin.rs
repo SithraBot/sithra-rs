@@ -1,4 +1,4 @@
-use std::{env, process};
+use std::{env, fmt::Display, process};
 
 use futures_util::{SinkExt as _, StreamExt};
 use serde::Deserialize;
@@ -17,9 +17,12 @@ use tokio::task::JoinSet;
 use crate::logger::init_log;
 
 pub struct Plugin {
-    peer:       Peer,
-    pub server: Server,
-    router:     Router,
+    peer:            Peer,
+    pub server:      Server,
+    router:          Router,
+    name:            String,
+    version:         String,
+    initialize_done: bool,
 }
 
 fn handle_options(version: &str, name: &str) -> bool {
@@ -53,9 +56,10 @@ impl Plugin {
     ///
     /// # Panics
     /// - If the initialization response fails to send.
-    pub async fn new<Config>(version: &str, name: &str) -> (Self, Initialize<Config>)
+    pub async fn new<Config, F>(version: &str, name: &str, init_fn: F) -> (Self, Initialize<Config>)
     where
         Config: for<'de> Deserialize<'de>,
+        F: FnOnce(&mut Initialize<Config>) -> InitializeResult,
     {
         if handle_options(version, name) {
             process::exit(0);
@@ -78,16 +82,17 @@ impl Plugin {
             }
         };
 
-        let init = match init {
+        let mut init = match init {
             Ok(init) => init,
             Err(err) => {
                 framed
                     .send(
                         DataPack::builder()
                             .path(Initialize::<Config>::path())
-                            .build_with_payload(InitializeResult::Err(err)),
+                            .build_with_payload(&InitializeResult::Err(err)),
                     )
-                    .await.ok();
+                    .await
+                    .ok();
                 tokio::signal::ctrl_c().await.ok();
                 process::exit(1);
             }
@@ -95,14 +100,18 @@ impl Plugin {
 
         init_log(server.client().sink());
 
-        server
-            .client()
-            .send(
-                RequestDataPack::default()
-                    .path(Initialize::<Config>::path())
-                    .payload(InitializeResult::Ok(())),
-            )
-            .unwrap_or_else(|_| panic!("Failed to send initialization response: [{name}]"));
+        if let Err(err) = init_fn(&mut init) {
+            framed
+                .send(
+                    DataPack::builder()
+                        .path(Initialize::<Config>::path())
+                        .build_with_payload(&InitializeResult::Err(err)),
+                )
+                .await
+                .ok();
+            tokio::signal::ctrl_c().await.ok();
+            process::exit(1);
+        }
 
         let peer = framed.into_inner();
         (
@@ -110,9 +119,53 @@ impl Plugin {
                 peer,
                 server,
                 router,
+                name: name.to_owned(),
+                version: version.to_owned(),
+                initialize_done: false,
             },
             init,
         )
+    }
+
+    /// Send an initialization response indicating success.
+    ///
+    /// # Panics
+    /// Panics if the initialization response cannot be sent.
+    pub fn ok(&mut self) {
+        self.server
+            .client()
+            .send(
+                RequestDataPack::default()
+                    .path(Initialize::<()>::path())
+                    .payload(&InitializeResult::Ok(())),
+            )
+            .unwrap_or_else(|_| panic!("Failed to send initialization response: [{}]", self.name));
+        self.initialize_done = true;
+    }
+
+    /// Send an initialization response indicating failure.
+    ///
+    /// # Panics
+    /// Panics if the initialization response cannot be sent.
+    pub async fn err(&mut self, err: impl Into<PluginInitError>) -> ! {
+        self.server
+            .client()
+            .send(
+                RequestDataPack::default()
+                    .path(Initialize::<()>::path())
+                    .payload(&InitializeResult::Err(err.into())),
+            )
+            .unwrap_or_else(|_| panic!("Failed to send initialization response: [{}]", self.name));
+        self.initialize_done = true;
+        tokio::signal::ctrl_c().await.ok();
+        process::exit(1)
+    }
+
+    pub async fn expect<T, E: Display>(&mut self, r: Result<T, E>) -> T {
+        match r {
+            Ok(v) => v,
+            Err(e) => self.err(PluginInitError::custom(e)).await,
+        }
     }
 
     #[must_use]
@@ -124,11 +177,17 @@ impl Plugin {
             peer,
             server,
             router,
+            name,
+            version,
+            initialize_done,
         } = self;
         Self {
             peer,
             server,
             router: f(router.with_state(())),
+            name,
+            version,
+            initialize_done,
         }
     }
 
@@ -141,20 +200,30 @@ impl Plugin {
             peer,
             server,
             router,
+            name,
+            version,
+            initialize_done,
         } = self;
         Self {
             peer,
             server,
             router: f(router).await,
+            name,
+            version,
+            initialize_done,
         }
     }
 
     #[must_use]
-    pub fn run(self) -> JoinSet<Result<(), ServerError>> {
+    pub fn run(mut self) -> JoinSet<Result<(), ServerError>> {
+        if !self.initialize_done {
+            self.ok();
+        }
         let Self {
             peer,
             server,
             router,
+            ..
         } = self;
         let (write, read) = peer.split();
 
@@ -164,10 +233,18 @@ impl Plugin {
 
 #[macro_export]
 macro_rules! plugin {
+    ($ty:ty, $fn:expr) => {
+        $crate::plugin::Plugin::new::<$ty, _>(
+            env!("CARGO_PKG_VERSION"),
+            env!("CARGO_PKG_NAME"),
+            $fn,
+        )
+        .await
+    };
     ($ty:ty) => {
-        $crate::plugin::Plugin::new::<$ty>(env!("CARGO_PKG_VERSION"), env!("CARGO_PKG_NAME")).await
+        $crate::plugin!($ty, |_| Ok(()))
     };
     () => {
-        $crate::plugin::Plugin::new::<()>(env!("CARGO_PKG_VERSION"), env!("CARGO_PKG_NAME")).await
+        $crate::plugin!(())
     };
 }

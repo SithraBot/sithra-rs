@@ -8,6 +8,7 @@ sithra-kit.workspace = true
 tokio.workspace = true
 log.workspace = true
 thiserror.workspace = true
+serde.workspace = true
 nom = "8"
 fastrand = "2"
 

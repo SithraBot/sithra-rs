@@ -7,20 +7,29 @@ use nom::{
     character::complete::{char, digit1},
     combinator::{eof, map_res, opt, value},
 };
+use serde::Deserialize;
 use sithra_kit::{
     plugin,
-    server::extract::payload::Payload,
+    server::extract::{payload::Payload, state::State},
     types::{
+        initialize::Initialize,
         message::{Message, SendMessage, common::CommonSegment as H},
-        smsg,
+        msg,
     },
 };
 use thiserror::Error;
 
+#[derive(Deserialize, Clone, Default)]
+struct Config {
+    #[serde(rename = "expr-max-length", default)]
+    expr_max_length: Option<usize>,
+}
+
 #[tokio::main]
 async fn main() {
-    let (plugin, _) = plugin!();
-    let plugin = plugin.map(|r| r.route_typed(Message::on(dice)));
+    let (plugin, Initialize { config, .. }) = plugin!(Option<Config>);
+    let plugin =
+        plugin.map(|r| r.route_typed(Message::on(dice)).with_state(config.unwrap_or_default()));
     log::info!("Dice plugin started");
     tokio::select! {
         _ = plugin.run().join_all() => {}
@@ -28,11 +37,14 @@ async fn main() {
     }
 }
 
-async fn dice(Payload(msg): Payload<Message<H>>) -> Option<SendMessage> {
+async fn dice(
+    Payload(msg): Payload<Message<H>>,
+    State(Config { expr_max_length }): State<Config>,
+) -> Option<SendMessage> {
     let dice = parse_dice(&msg.content)?;
 
-    if let Some(err) = dice.verify() {
-        return Some(smsg!(err.to_string()));
+    if let Err(err) = dice.verify() {
+        return Some(msg!(f "{err}"));
     }
 
     log::debug!("Dice roll requested: {dice}");
@@ -51,13 +63,23 @@ async fn dice(Payload(msg): Payload<Message<H>>) -> Option<SendMessage> {
 
     results.sort_unstable();
 
-    let raw = if select.is_some() {
+    let mut raw = if select.is_some() {
         let mut raw = results.iter().map(u64::to_string).collect::<Vec<String>>().join(", ");
         raw.push('\n');
         raw
     } else {
         String::new()
     };
+
+    let mut expr = results.iter().map(u64::to_string).collect::<Vec<String>>().join(" + ");
+
+    if expr_max_length.is_some_and(|eml| raw.len() > eml) {
+        raw.clear();
+    }
+    if expr_max_length.is_some_and(|eml| expr.len() > eml) {
+        expr.clear();
+        expr.push_str("..");
+    }
 
     if let Some((select_high, select)) = select {
         if select_high {
@@ -70,14 +92,10 @@ async fn dice(Payload(msg): Payload<Message<H>>) -> Option<SendMessage> {
     let result = match results.as_slice() {
         [] => None,
         [first] => Some(format!("{first}")),
-        _ => Some(format!(
-            "{raw}{} = {}",
-            results.iter().map(u64::to_string).collect::<Vec<String>>().join(" + "),
-            results.iter().sum::<u64>()
-        )),
+        _ => Some(format!("{raw}{expr} = {}", results.iter().sum::<u64>())),
     }?;
 
-    Some(smsg!(result))
+    Some(msg!(result))
 }
 
 struct Dice {
@@ -88,21 +106,21 @@ struct Dice {
 }
 
 impl Dice {
-    const fn verify(&self) -> Option<DiceVerify> {
+    const fn verify(&self) -> Result<(), DiceVerify> {
         if self.face == 0 {
-            Some(DiceVerify::Face)
+            Err(DiceVerify::Face)
         } else if self.times == 0 {
-            Some(DiceVerify::Times)
+            Err(DiceVerify::Times)
         } else if let Some((_, select)) = self.select {
             if select == 0 {
-                Some(DiceVerify::Select)
+                Err(DiceVerify::Select)
             } else if select > self.times {
-                Some(DiceVerify::SelectRange)
+                Err(DiceVerify::SelectRange)
             } else {
-                None
+                Ok(())
             }
         } else {
-            None
+            Ok(())
         }
     }
 }

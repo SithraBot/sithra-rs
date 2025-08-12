@@ -12,6 +12,7 @@ use std::convert::Infallible;
 use either::Either;
 use futures_util::{FutureExt, SinkExt, StreamExt, future::Map};
 use sithra_transport::{
+    EncodeError,
     datapack::{DataPack, DataPackCodec, DataPackCodecError, RequestDataPack},
     peer::{Reader, Writer},
 };
@@ -277,11 +278,14 @@ impl Client {
     /// This method panics if there is a `Ulid` conflict for the request's
     /// correlation ID. This is extremely unlikely to happen in practice.
     #[allow(clippy::result_large_err)]
-    pub fn post(
+    pub fn post<Error>(
         &self,
-        datapack: impl Into<RequestDataPack>,
-    ) -> Result<ReceiverGuard<Ulid, DataPack>, PostError> {
-        let datapack = datapack.into();
+        datapack: impl TryInto<RequestDataPack, Error = Error>,
+    ) -> Result<ReceiverGuard<Ulid, DataPack>, PostError>
+    where
+        Error: Into<PostError>,
+    {
+        let datapack = datapack.try_into().map_err(Into::into)?;
         let key = datapack.correlation();
         let guard = self.shared_oneshot_map.register(key).expect("Ulid Conflict");
         self.writer_tx
@@ -312,7 +316,7 @@ impl Client {
     /// This method panics if there is a `Ulid` conflict for the request's
     /// correlation ID. This is extremely unlikely to happen in practice.
     #[allow(clippy::result_large_err)]
-    pub fn post_typed<T: TypedRequest + Into<RequestDataPack>>(
+    pub fn post_typed<Error, T: TypedRequest + TryInto<RequestDataPack, Error = Error>>(
         &self,
         datapack: T,
     ) -> Result<
@@ -323,7 +327,10 @@ impl Client {
             ) -> Result<<T as TypedRequest>::Response, PostError>,
         >,
         PostError,
-    > {
+    >
+    where
+        Error: Into<PostError>,
+    {
         let result = self.post(datapack);
         result.map(|fut| {
             fut.map(|rs| match rs {
@@ -351,8 +358,14 @@ impl Client {
     /// This method panics if there is a `Ulid` conflict for the request's
     /// correlation ID. This is extremely unlikely to happen in practice.
     #[allow(clippy::result_large_err)]
-    pub fn send(&self, datapack: impl Into<RequestDataPack>) -> Result<(), PostError> {
-        let datapack = datapack.into();
+    pub fn send<Error>(
+        &self,
+        datapack: impl TryInto<RequestDataPack, Error = Error>,
+    ) -> Result<(), PostError>
+    where
+        Error: Into<PostError>,
+    {
+        let datapack = datapack.try_into().map_err(Into::into)?;
         self.writer_tx
             .send(datapack.into())
             .map_err(|err| PostError::ChannelClosed(err.0))?;
@@ -386,8 +399,14 @@ impl ClientSink {
     /// This method panics if there is a `Ulid` conflict for the request's
     /// correlation ID. This is extremely unlikely to happen in practice.
     #[allow(clippy::result_large_err)]
-    pub fn send(&self, datapack: impl Into<DataPack>) -> Result<(), PostError> {
-        let datapack = datapack.into();
+    pub fn send<Error>(
+        &self,
+        datapack: impl TryInto<DataPack, Error = Error>,
+    ) -> Result<(), PostError>
+    where
+        Error: Into<PostError>,
+    {
+        let datapack = datapack.try_into().map_err(Into::into)?;
         self.writer_tx.send(datapack).map_err(|err| PostError::ChannelClosed(err.0))?;
         Ok(())
     }
@@ -401,6 +420,14 @@ pub enum PostError {
     RecvError(#[from] oneshot::error::RecvError),
     #[error("Request error: {0}")]
     RequestError(String),
+    #[error("Encoding error: {0}")]
+    EncodingError(#[from] EncodeError),
+}
+
+impl From<Infallible> for PostError {
+    fn from(value: Infallible) -> Self {
+        match value {}
+    }
 }
 
 impl From<String> for PostError {

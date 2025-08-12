@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use typeshare::typeshare;
 
 #[typeshare]
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Hash)]
 /// Represents a communication channel with a unique ID, type, name, and
 /// optional parent ID.
 ///
@@ -143,7 +143,7 @@ impl Channel {
 
 /// Represents the type of a communication channel.
 #[typeshare]
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum ChannelType {
     /// A group channel, typically used for multi-user conversations.

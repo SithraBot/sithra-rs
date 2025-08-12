@@ -113,7 +113,9 @@ mod tests {
             .with_state(state.clone());
 
         router
-            .call(Request::new(test_data("/message").payload("Hello World.")))
+            .call(Request::new(
+                test_data("/message").payload("Hello World.").unwrap(),
+            ))
             .await
             .unwrap();
 

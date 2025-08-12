@@ -32,7 +32,7 @@ pub mod response {
                 );
             }
             let Some(data) = data else {
-                return DataPack::builder().correlate(echo).bot_id(bot_id).build_with_payload(());
+                return DataPack::builder().correlate(echo).bot_id(bot_id).build_with_payload(&());
             };
             match data {
                 ApiResponseKind::SendMessage(send_msg) => {
@@ -40,10 +40,10 @@ pub mod response {
                         id:      send_msg.message_id,
                         content: SmallVec::new(),
                     };
-                    DataPack::builder().correlate(echo).build_with_payload(payload)
+                    DataPack::builder().correlate(echo).build_with_payload(&payload)
                 }
                 ApiResponseKind::GetStatus(status) => {
-                    DataPack::builder().correlate(echo).build_with_payload(status)
+                    DataPack::builder().correlate(echo).build_with_payload(&status)
                 }
             }
         }

@@ -20,7 +20,7 @@ impl FromRef<AppState> for Client {
 
 async fn hello_world(State(client): State<Client>) -> Result<Payload<()>, String> {
     let Ok(response) =
-        client.post(RequestDataPack::default().path("/print").payload("hello world!"))
+        client.post(RequestDataPack::default().path("/print").payload("hello world!").unwrap())
     else {
         return Err("Failed to send request".to_owned());
     };

@@ -4,7 +4,7 @@ use sithra_kit::{
     server::extract::{payload::Payload, state::State},
     types::{
         message::{Message, SendMessage, common::CommonSegment as H},
-        smsg,
+        msg,
     },
 };
 use triomphe::Arc;
@@ -41,19 +41,19 @@ async fn run(
     let text = text.strip_prefix("run$\n")?.to_owned();
     let text = text.trim();
     if text.is_empty() {
-        return Some(smsg!("我可执行不了空白代码喵"));
+        return Some(msg!("我可执行不了空白代码喵"));
     }
     let source = match Source::memory(text) {
         Ok(source) => source,
         Err(err) => {
             log::warn!("Failed to create source: {err}");
-            return Some(smsg!(format!("解析失败喵: \n{err}")));
+            return Some(msg!(format!("解析失败喵: \n{err}")));
         }
     };
     let mut sources = Sources::new();
     if let Err(err) = sources.insert(source) {
         log::warn!("Failed to insert source: {err}");
-        return Some(smsg!(format!("插入源失败喵: \n{err}")));
+        return Some(msg!(format!("插入源失败喵: \n{err}")));
     }
     let mut diagnostics = Diagnostics::new();
     let result = rune::prepare(&mut sources)
@@ -84,7 +84,7 @@ async fn run(
         Ok(unit) => std::sync::Arc::new(unit),
         Err(err) => {
             log::error!("Failed to create source: {err}");
-            return Some(smsg!(format!("解析失败喵: \n{err}")));
+            return Some(msg!(format!("解析失败喵: \n{err}")));
         }
     };
 
@@ -113,5 +113,5 @@ async fn run(
     })
     .call();
 
-    Some(smsg!(output))
+    Some(msg!(output))
 }

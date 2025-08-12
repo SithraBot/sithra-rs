@@ -12,7 +12,7 @@ tokio-util = { version = "0.7", features = ["full"] }
 futures-util = { version = "0.3", features = ["sink"] }
 rmp-serde = { version = "1" }
 pin-project = { version = "1" }
-bytes = { version = "1" }
+bytes = { version = "1", features = ["serde"] }
 thiserror = { version = "2" }
 ulid = { version = "1", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }

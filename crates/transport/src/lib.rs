@@ -16,5 +16,5 @@ pub mod datapack;
 pub mod peer;
 pub mod util;
 
-pub use rmp_serde::{decode::Error as DecodeError, encode::Error as EncodeError};
+pub use rmp_serde::{decode::Error as DecodeError, encode::Error as EncodeError, from_slice};
 pub use serde_json::{Error as ValueError, Value, from_value, to_value};

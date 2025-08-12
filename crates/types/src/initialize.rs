@@ -46,6 +46,14 @@ pub enum PluginInitError {
     JsonSerializationError(String),
     #[error("Failed to deserialize init pack: {0}")]
     InitPackDeserializeError(String),
+    #[error("Failed to initialize plugin: {0}")]
+    CustomError(String),
+}
+
+impl PluginInitError {
+    pub fn custom(message: impl Display) -> Self {
+        Self::CustomError(format!("{message}"))
+    }
 }
 
 impl From<serde_json::Error> for PluginInitError {

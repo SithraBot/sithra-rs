@@ -2,7 +2,8 @@
 //!
 //! Provides helper functions for creating framed transports and chunking data.
 
-use bytes::BytesMut;
+use bytes::{BufMut, Bytes, BytesMut};
+use serde::Serialize;
 use tokio::process::Child;
 use tokio_util::codec::Framed;
 
@@ -97,6 +98,22 @@ pub fn get_chunk(src: &mut BytesMut) -> Option<BytesMut> {
     } else {
         Some(src.split_to(1024))
     }
+}
+
+/// Serializes a value into a `Bytes` buffer
+///
+/// # Arguments
+/// * `val` - The value to serialize
+/// 
+/// # Errors
+/// Returns an error if serialization fails
+///
+/// # Returns
+/// Result containing the serialized `Bytes` buffer, or an error if serialization fails
+pub fn to_bytes<S: Serialize + ?Sized>(val: &S) -> Result<Bytes, crate::EncodeError> {
+    let mut writer = BytesMut::new().writer();
+    rmp_serde::encode::write_named(&mut writer, val)?;
+    Ok(writer.into_inner().freeze())
 }
 
 #[cfg(test)]

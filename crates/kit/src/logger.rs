@@ -14,7 +14,7 @@ impl Log for ClientLogger {
 
     fn log(&self, record: &log::Record) {
         let log_request = LogRequest::from(record);
-        self.0.send(RequestDataPack::from(log_request)).ok();
+        self.0.send(RequestDataPack::try_from(log_request)).ok();
     }
 
     fn flush(&self) {}
