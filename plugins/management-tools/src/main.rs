@@ -75,7 +75,10 @@ macro_rules! tap_err {
             Ok(ok) => ok,
             Err(err) => {
                 log::error!(concat!("Failed to ", $action, ": {:?}"), err);
-                return Some(msg!(concat!($action, "失败喵，请通过错误日志查看具体信息喵")));
+                return Some(msg!(concat!(
+                    $action,
+                    "失败喵，请通过错误日志查看具体信息喵"
+                )));
             }
         }
     };

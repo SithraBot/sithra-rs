@@ -71,6 +71,14 @@ async fn dice(
         String::new()
     };
 
+    if let Some((select_high, select)) = select {
+        if select_high {
+            results.drain(..results.len() - select);
+        } else {
+            results.truncate(select);
+        }
+    }
+
     let mut expr = results.iter().map(u64::to_string).collect::<Vec<String>>().join(" + ");
 
     if expr_max_length.is_some_and(|eml| raw.len() > eml) {
@@ -79,14 +87,6 @@ async fn dice(
     if expr_max_length.is_some_and(|eml| expr.len() > eml) {
         expr.clear();
         expr.push_str("..");
-    }
-
-    if let Some((select_high, select)) = select {
-        if select_high {
-            results.drain(..results.len() - select);
-        } else {
-            results.truncate(select);
-        }
     }
 
     let result = match results.as_slice() {

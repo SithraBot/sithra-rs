@@ -86,12 +86,15 @@ impl Config {
         self.config.iter().map(|(key, value)| (key.as_str(), value))
     }
 
-    pub fn keys(&self) -> impl Iterator<Item = &String> {
-        self.config.keys()
+    pub fn keys(&self) -> impl Iterator<Item = &str> {
+        self.config.keys().map(String::as_str)
     }
 
-    pub fn keys_enabled(&self) -> impl Iterator<Item = &String> {
-        self.config.iter().filter(|(_, config)| config.enable).map(|(key, _)| key)
+    pub fn keys_enabled(&self) -> impl Iterator<Item = &str> {
+        self.config
+            .iter()
+            .filter(|(_, config)| config.enable)
+            .map(|(key, _)| key.as_str())
     }
 
     /// # Errors

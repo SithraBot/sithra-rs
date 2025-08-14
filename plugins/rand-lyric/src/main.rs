@@ -2,7 +2,10 @@ use rust_embed::Embed;
 use sithra_kit::{
     plugin,
     server::extract::payload::Payload,
-    types::{message::{common::CommonSegment as H, Message, SendMessage}, msg},
+    types::{
+        message::{Message, SendMessage, common::CommonSegment as H},
+        msg,
+    },
 };
 
 #[derive(Embed)]

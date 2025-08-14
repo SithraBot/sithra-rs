@@ -1,5 +1,5 @@
 use serde::Deserialize;
-use sithra_transport::{channel::Channel, datapack::RequestDataPack, DecodeError};
+use sithra_transport::{DecodeError, channel::Channel, datapack::RequestDataPack};
 use triomphe::Arc;
 use ulid::Ulid;
 

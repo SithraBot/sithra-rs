@@ -227,10 +227,7 @@ impl<D1: Display, D2: Display> From<Result<D1, D2>> for SendMessage {
 }
 
 pub trait ContextExt {
-    fn reply(
-        &self,
-        msg: &SendMessage,
-    ) -> impl Future<Output = Result<Message, PostError>>;
+    fn reply(&self, msg: &SendMessage) -> impl Future<Output = Result<Message, PostError>>;
 }
 
 impl<S, T> ContextExt for Context<T, S>
@@ -341,9 +338,9 @@ pub mod common {
         }
 
         #[must_use]
-        pub const fn text_opt(&self) -> Option<&String> {
+        pub const fn text_opt(&self) -> Option<&str> {
             match self {
-                Self::Text(text) => Some(text),
+                Self::Text(text) => Some(text.as_str()),
                 _ => None,
             }
         }

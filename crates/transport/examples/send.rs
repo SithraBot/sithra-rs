@@ -1,7 +1,4 @@
-use std::{
-    process::Stdio,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::{process::Stdio, time::SystemTime};
 
 use futures_util::SinkExt;
 use sithra_transport::{datapack::DataPack, peer::Peer, util::framed};
@@ -16,6 +13,8 @@ async fn main() {
         .unwrap();
     let peer = Peer::from_child(cmd).unwrap();
     let mut framed = framed(peer);
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-    framed.send(DataPack::builder().payload(&now).build()).await.unwrap();
+    let now = SystemTime::now();
+    for _ in 0..1_000_000 {
+        framed.send(DataPack::builder().payload(&now).build()).await.unwrap();
+    }
 }

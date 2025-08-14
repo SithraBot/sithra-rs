@@ -1,7 +1,7 @@
 use std::ops::{Deref, DerefMut};
 
 use serde::de::DeserializeOwned;
-use sithra_transport::{datapack::RequestDataPack, DecodeError, Value, ValueError};
+use sithra_transport::{DecodeError, Value, ValueError, datapack::RequestDataPack};
 use triomphe::Arc;
 
 use crate::{extract::FromRequest, response};
@@ -27,7 +27,7 @@ impl<T: DeserializeOwned> Payload<T> {
     pub fn from_value(value: &Value) -> Result<Self, ValueError> {
         Ok(Self(sithra_transport::from_value(value.clone())?))
     }
-    
+
     /// # Errors
     /// Returns an error if the bytes cannot be deserialized.
     pub fn from_slice(bytes: &[u8]) -> Result<Self, DecodeError> {

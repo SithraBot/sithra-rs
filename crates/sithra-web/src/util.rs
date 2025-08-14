@@ -21,7 +21,7 @@ pub struct Args {
     /// The path for the web server to serve files from.
     #[arg(long, env = "SITHRA_WEB_PATH")]
     web_path: Option<String>,
-    
+
     /// Whether to run the server in API-only mode.
     #[arg(long, env = "SITHRA_WEB_API_ONLY")]
     api_only: bool,
@@ -87,7 +87,7 @@ impl Args {
         }
         .to_owned()
     }
-    
+
     /// Returns whether the server should run in API-only mode.
     pub const fn api_only(&self) -> bool {
         self.api_only

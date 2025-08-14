@@ -56,7 +56,10 @@ impl Keys {
 }
 
 pub fn auth_verify(token: &Claims) -> Result<(), AuthError> {
-    if token.hex.eq(CREDENTIALS.read().unwrap().as_ref().ok_or(AuthError::CredentialsNotFound)?) {
+    if token
+        .hex
+        .eq(CREDENTIALS.read().unwrap().as_ref().ok_or(AuthError::CredentialsNotFound)?)
+    {
         Ok(())
     } else {
         Err(AuthError::WrongCredentials)
@@ -88,11 +91,11 @@ where
         log::debug!("auth: {bearer:?}");
         let mut validation = Validation::default();
         validation.validate_exp = false;
-        let token_data = decode::<Claims>(bearer.token(), &KEYS.decoding, &validation)
-            .map_err(|e| {
-            log::debug!("auth_error: {e}");
-            AuthError::InvalidToken
-        })?;
+        let token_data =
+            decode::<Claims>(bearer.token(), &KEYS.decoding, &validation).map_err(|e| {
+                log::debug!("auth_error: {e}");
+                AuthError::InvalidToken
+            })?;
         auth_verify(&token_data.claims)?;
         Ok(Self)
     }

@@ -7,7 +7,7 @@ use thiserror::Error;
 use tokio_util::codec::{Decoder, Encoder};
 use ulid::Ulid;
 
-use crate::{channel::Channel, util::get_chunk};
+use crate::{channel::Channel, util::to_bytes};
 
 /// A raw data packet containing a length-prefixed byte buffer.
 ///
@@ -69,9 +69,7 @@ impl Encoder<RawDataPack> for RawDataPackCodec {
     fn encode(&mut self, item: RawDataPack, dst: &mut BytesMut) -> Result<(), Self::Error> {
         self.en_buffer.put_u32(item.data_len);
         self.en_buffer.put(item.data);
-        while let Some(bytes) = get_chunk(&mut self.en_buffer) {
-            dst.put(bytes);
-        }
+        dst.put(self.en_buffer.split());
         Ok(())
     }
 }
@@ -235,7 +233,7 @@ impl RequestDataPack {
         mut self,
         payload: &S,
     ) -> Result<Self, rmp_serde::encode::Error> {
-        self.payload = crate::util::to_bytes(payload)?;
+        self.payload = to_bytes(payload)?;
         Ok(self)
     }
 
@@ -354,7 +352,7 @@ impl DataPackBuilder {
     /// Sets the `result` field to a `Payload` variant.
     #[must_use]
     pub fn payload(mut self, payload: &impl Serialize) -> Self {
-        let payload = crate::util::to_bytes(payload);
+        let payload = to_bytes(payload);
         match payload {
             Ok(payload) => {
                 self.result = Some(Ok(payload));
@@ -376,7 +374,7 @@ impl DataPackBuilder {
     /// Builds a `DataPack` with a `Payload` result.
     #[must_use]
     pub fn build_with_payload(mut self, payload: &impl Serialize) -> DataPack {
-        let payload = crate::util::to_bytes(payload);
+        let payload = to_bytes(payload);
         match payload {
             Ok(payload) => {
                 self.result = Some(Ok(payload));
@@ -456,7 +454,7 @@ impl DataPack {
     /// # Errors
     /// Returns an error if the `DataPack` cannot be serialized.
     pub fn serialize_to_raw(&self) -> Result<RawDataPack, rmp_serde::encode::Error> {
-        rmp_serde::to_vec_named(self).map(|v| RawDataPack::new(Bytes::from(v)))
+        Ok(RawDataPack::new(to_bytes(self)?))
     }
 
     #[must_use]

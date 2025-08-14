@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 
 use ahash::AHashMap;
+use nom::{IResult, Parser, branch::alt, bytes::complete::tag};
 use rig::{
     agent::Agent,
     client::CompletionClient,
@@ -60,9 +61,9 @@ struct AppState {
 
 const MESSAGE_FORMAT_PREAMBLE: &str =
     "You are a helpful ROLEPLAY AI assistant integrated into a roleplay chat service. You will \
-     receive messages from users, and each message will be prefixed with the name of the user \
-     it originated from, in the format `[user_name]: message`. When you respond, do not add \
-     any prefix to your own message.";
+     receive messages from users, and each message will be prefixed with the name of the user it \
+     originated from, in the format `[user_name]: message`. When you respond, do not add any \
+     prefix to your own message.";
 
 #[tokio::main]
 async fn main() {
@@ -105,13 +106,7 @@ async fn ai(
     }): State<AppState>,
 ) -> Option<SendMessage> {
     // log::debug!("{:?}", msg.content);
-    let msg = match msg.content.as_slice() {
-        [H::At(id), ..] if channel.self_id.as_ref().is_some_and(|sid| sid.eq(id)) => {
-            text_only(&msg)
-        }
-        [H::Text(f)] => f.strip_prefix("!?").map(ToOwned::to_owned),
-        _ => None,
-    }?;
+    let msg = cmd(&msg.content, &channel)?;
     let msg = format!("[{}]: {msg}", channel.name);
     log::info!("Received message: {msg}");
     let key = if let Some(id) = channel.parent_id {
@@ -129,7 +124,7 @@ async fn ai(
         .iter()
         .map(Clone::clone)
         .collect();
-    let response = agent.chat(msg.trim(), current_history).await;
+    let response = agent.chat(&msg, current_history).await;
     let response = match response {
         Ok(res) => res,
         Err(err) => {
@@ -144,6 +139,40 @@ async fn ai(
     shift_history(history.lock().await.entry(key).or_default(), max_history);
     log::info!("Received response: {response:?}");
     Some(msg!(response))
+}
+
+fn tag_ask(input: &str) -> IResult<&str, &str> {
+    alt((tag("?"), tag("!"), tag("？"), tag("！"))).parse(input)
+}
+
+fn cmd(msg: &[H], channel: &Channel) -> Option<String> {
+    let msg = match msg {
+        [H::At(id), ..] if channel.self_id.as_ref().is_some_and(|sid| sid.eq(id)) => text_only(msg),
+        [H::Text(f)] => {
+            let res: IResult<&str, _> = (tag_ask, tag_ask).parse(f);
+            let res = res.ok()?;
+            Some(res.0.to_owned())
+        }
+        _ => None,
+    }?;
+    let msg = msg.trim();
+    if msg.is_empty() {
+        return None;
+    }
+    Some(msg.to_owned())
+}
+
+#[cfg(test)]
+#[test]
+fn test_cmd() {
+    use sithra_kit::types::seg;
+    let channel = Channel::default();
+    let msg = seg!(H[text: "?!AAABBB"]);
+    let v = cmd(&msg, &channel);
+    assert_eq!(v, Some("AAABBB".to_owned()));
+    let msg = seg!(H[text: "?!"]);
+    let v = cmd(&msg, &channel);
+    assert_eq!(v, None);
 }
 
 fn shift_history(history: &mut VecDeque<rig::message::Message>, max_history: usize) {
@@ -161,7 +190,7 @@ fn shift_history(history: &mut VecDeque<rig::message::Message>, max_history: usi
 fn text_only(msg: &[H]) -> Option<String> {
     let raw = msg
         .iter()
-        .filter_map(|h| h.text_opt().map(|s| s.trim()))
+        .filter_map(|h| h.text_opt().map(str::trim))
         .fold(String::new(), |s, h| s + h);
     if raw.trim().is_empty() {
         None
