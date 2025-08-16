@@ -2,6 +2,8 @@ pub use sithra_server as server;
 pub use sithra_server::transport;
 pub use sithra_types as types;
 
+pub mod util;
+
 #[cfg(feature = "layers")]
 pub mod layers;
 
