@@ -162,7 +162,7 @@ macro_rules! msg {
        $crate::message::SendMessage::from($seg)
     };
     (f $fmt:literal $($arg:tt)*) => {
-        $crate::msg!(::std::format!($fmt, $($arg)*))
+        $crate::msg!(::std::format!($fmt $($arg)*))
     }
 }
 
@@ -254,6 +254,7 @@ pub trait ClientfulExt {
     fn send_message(
         &self,
         channel: impl Into<Channel> + Send + Sync,
+        bot_id: Option<impl Display + Send + Sync>,
         msg: &SendMessage,
     ) -> impl Future<Output = Result<Message, PostError>> + Send + Sync;
 }
@@ -265,17 +266,16 @@ where
     async fn send_message(
         &self,
         channel: impl Into<Channel> + Send + Sync,
+        bot_id: Option<impl Display + Send + Sync>,
         msg: &SendMessage,
     ) -> Result<Message, PostError> {
-        let datapack = self
-            .client()
-            .post(
-                RequestDataPack::default()
-                    .path("/command/message.create")
-                    .channel(channel.into())
-                    .payload(msg),
-            )?
-            .await?;
+        let mut req = RequestDataPack::default()
+            .path("/command/message.create")
+            .channel(channel.into());
+        if let Some(bot_id) = bot_id {
+            req = req.bot_id(bot_id);
+        }
+        let datapack = self.client().post(req.payload(msg))?.await?;
         let msg = datapack.payload::<Message>()?;
         Ok(msg)
     }
@@ -439,6 +439,7 @@ mod tests {
         state
             .send_message(
                 channel,
+                Option::<&str>::None,
                 &msg!(CommonSegment[
                     text: "Hello, world!",
                     img: "https://example.com/image.png"

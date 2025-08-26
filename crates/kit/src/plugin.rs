@@ -26,11 +26,12 @@ pub struct Plugin {
 }
 
 fn handle_options(version: &str, name: &str) -> bool {
-    handle_version(env::args(), version) || handle_name(env::args(), name)
+    let args = env::args().collect::<Vec<_>>();
+    handle_version(&args, version) || handle_name(&args, name)
 }
 
-fn handle_version(mut args: impl Iterator<Item = String>, version: &str) -> bool {
-    let is_get_version = args.any(|arg| arg.trim().eq("--version"));
+fn handle_version(args: &[String], version: &str) -> bool {
+    let is_get_version = args.iter().any(|arg| arg.trim().eq("--version"));
     if is_get_version {
         print!("{version}");
         return true;
@@ -38,8 +39,8 @@ fn handle_version(mut args: impl Iterator<Item = String>, version: &str) -> bool
     false
 }
 
-fn handle_name(mut args: impl Iterator<Item = String>, name: &str) -> bool {
-    let is_get_name = args.any(|arg| arg.trim().eq("--name"));
+fn handle_name(args: &[String], name: &str) -> bool {
+    let is_get_name = args.iter().any(|arg| arg.trim().eq("--name"));
     if is_get_name {
         print!("{name}");
         return true;

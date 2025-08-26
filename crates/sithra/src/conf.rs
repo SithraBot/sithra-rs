@@ -66,6 +66,9 @@ impl Config {
             };
             if file_path.exists() {
                 let file = std::fs::read_to_string(&file_path)?;
+                if file.is_empty() {
+                    continue;
+                }
                 let config = toml::from_str(&file)?;
                 v.config = config;
                 let doc = file.parse()?;
@@ -102,6 +105,9 @@ impl Config {
     /// * `ReadError` - Failed to read config file
     /// * `ParseError` - Failed to parse config file
     pub fn set_config(&mut self, id: &str, config: &str) -> Result<(), LoadConfigError> {
+        if config.is_empty() {
+            return Ok(());
+        }
         let value: toml::Value = toml::from_str(config)?;
         let doc: DocumentMut = config.parse()?;
         if let Some(base_config) = self.config.get_mut(id) {

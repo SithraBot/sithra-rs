@@ -18,8 +18,8 @@ smallvec.workspace = true
 tower.workspace = true
 matchit.workspace = true
 triomphe.workspace = true
-parking_lot = "0.12.4"
 ahash.workspace = true
+parking_lot = "0.12"
 
 # Workspace dependencies
 

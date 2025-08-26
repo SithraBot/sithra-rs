@@ -35,6 +35,10 @@ pub async fn send_message(
     } else {
         segments.collect()
     };
+    if segments.is_empty() {
+        log::warn!("Empty message content");
+        return None;
+    }
     let req = if let Some(group_id) = channel.parent_id {
         ApiCall::new(
             "send_msg",

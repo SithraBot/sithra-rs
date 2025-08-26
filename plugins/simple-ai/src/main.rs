@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 
 use ahash::AHashMap;
+use minimax::GenVoice;
 use nom::{IResult, Parser, branch::alt, bytes::complete::tag};
 use rig::{
     agent::Agent,
@@ -9,9 +10,13 @@ use rig::{
     providers::openrouter::{self, CompletionModel},
 };
 use serde::Deserialize;
+use sithra_adapter_onebot::message::OneBotSegment as QH;
 use sithra_kit::{
     plugin,
-    server::extract::{payload::Payload, state::State},
+    server::{
+        extract::{context::Clientful, payload::Payload, state::State},
+        server::Client,
+    },
     transport::channel::Channel,
     types::{
         initialize::Initialize,
@@ -26,8 +31,7 @@ use triomphe::Arc;
 struct Config {
     #[serde(rename = "api-key")]
     api_key:     String,
-    #[serde(rename = "base-url")]
-    #[serde(default = "default_base_url")]
+    #[serde(default = "default_base_url", rename = "base-url")]
     base_url:    String,
     #[serde(default = "default_model")]
     model:       String,
@@ -35,9 +39,10 @@ struct Config {
     preamble:    String,
     temperature: Option<f64>,
     context:     Option<Vec<String>>,
-    #[serde(default = "default_max_history")]
-    #[serde(rename = "max-history")]
+    #[serde(default = "default_max_history", rename = "max-history")]
     max_history: usize,
+    #[serde(default = "default_use_voice", rename = "use-voice")]
+    use_voice:   bool,
 }
 fn default_base_url() -> String {
     "https://openrouter.ai/api/v1".to_owned()
@@ -51,12 +56,22 @@ fn default_preamble() -> String {
 const fn default_max_history() -> usize {
     20
 }
+const fn default_use_voice() -> bool {
+    false
+}
 
 #[derive(Clone)]
 struct AppState {
     agent:       Arc<Agent<CompletionModel>>,
     history:     Arc<Mutex<AHashMap<String, VecDeque<rig::message::Message>>>>,
     max_history: usize,
+    use_voice:   bool,
+    client:      Client,
+}
+impl Clientful for AppState {
+    fn client(&self) -> &Client {
+        &self.client
+    }
 }
 
 const MESSAGE_FORMAT_PREAMBLE: &str =
@@ -87,6 +102,8 @@ async fn main() {
         agent:       Arc::new(agent),
         history:     Arc::new(Mutex::new(AHashMap::new())),
         max_history: config.max_history,
+        use_voice:   config.use_voice,
+        client:      plugin.server.client(),
     };
     let plugin = plugin.map(|r| r.route_typed(Message::on(ai)).with_state(state));
     log::info!("Simple AI started");
@@ -103,10 +120,12 @@ async fn ai(
         agent,
         history,
         max_history,
+        use_voice,
+        client,
     }): State<AppState>,
 ) -> Option<SendMessage> {
     // log::debug!("{:?}", msg.content);
-    let msg = cmd(&msg.content, &channel)?;
+    let msg = cmd(&msg.content, &channel)?.replace('[', "【").replace(']', "】");
     let msg = format!("[{}]: {msg}", channel.name);
     log::info!("Received message: {msg}");
     let key = if let Some(id) = channel.parent_id {
@@ -126,7 +145,7 @@ async fn ai(
         .collect();
     let response = agent.chat(&msg, current_history).await;
     let response = match response {
-        Ok(res) => res,
+        Ok(res) => res.trim().to_owned(),
         Err(err) => {
             log::error!("{err}");
             return Some(msg!("[API错误]"));
@@ -138,7 +157,26 @@ async fn ai(
     });
     shift_history(history.lock().await.entry(key).or_default(), max_history);
     log::info!("Received response: {response:?}");
-    Some(msg!(response))
+    if use_voice {
+        let request = client.post_typed(GenVoice(response.clone()));
+        let request = match request {
+            Ok(req) => req.await,
+            Err(err) => {
+                log::error!("{err}");
+                return Some(msg!(response));
+            }
+        };
+        let response = match request {
+            Ok(res) => res,
+            Err(err) => {
+                log::error!("{err}");
+                return Some(msg!(response));
+            }
+        };
+        Some(msg!(QH[record: format!("base64://{response}")]))
+    } else {
+        Some(msg!(response))
+    }
 }
 
 fn tag_ask(input: &str) -> IResult<&str, &str> {

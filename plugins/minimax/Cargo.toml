@@ -1,5 +1,5 @@
 [package]
-name = "simple-ai"
+name = "minimax"
 version = "0.1.0"
 edition.workspace = true
 
@@ -10,13 +10,13 @@ tokio.workspace = true
 log.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-triomphe.workspace = true
-minimax.workspace = true
-ahash.workspace = true
-nom = "8"
-rig-core = { version = "0.17", default-features = false, features = [
-    "reqwest-rustls",
+anyhow = "1"
+reqwest = { version = "0.12", default-features = false, features = [
+    "rustls-tls",
+    "json",
 ] }
+base64 = "0.22"
+hex = "0.4"
 
 [lints]
 workspace = true

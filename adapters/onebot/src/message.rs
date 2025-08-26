@@ -9,7 +9,7 @@ use sithra_kit::{
     types::message::{NIL, Segment},
 };
 
-use crate::message::internal::InternalOneBotUnknownSegment;
+use crate::message::internal::{InternalOneBotUnknownSegment, Record};
 
 pub mod internal {
     use serde::{Deserialize, Serialize, de::Error as _};
@@ -29,9 +29,7 @@ pub mod internal {
         Image {
             file: String,
         },
-        Record {
-            file: String,
-        },
+        Record(Record),
         Video {
             file: String,
         },
@@ -51,16 +49,22 @@ pub mod internal {
             id: String,
         },
     }
-
+    #[derive(Debug, Clone, Deserialize, Serialize)]
+    pub struct Record {
+        pub file: String,
+        #[serde(default)]
+        pub url:  String,
+    }
     impl InternalOneBotTypedSegment {
         pub async fn or_in_base64(self) -> Self {
             match self {
                 Self::Image { file } => Self::Image {
                     file: or_in_base64(&file).await.unwrap_or(file),
                 },
-                Self::Record { file } => Self::Record {
+                Self::Record(Record { file, url }) => Self::Record(Record {
                     file: or_in_base64(&file).await.unwrap_or(file),
-                },
+                    url:  or_in_base64(&url).await.unwrap_or(url),
+                }),
                 Self::Video { file } => Self::Video {
                     file: or_in_base64(&file).await.unwrap_or(file),
                 },
@@ -214,9 +218,10 @@ impl OneBotSegment {
 
     pub fn record<T: Display>(url: T) -> Self {
         Self(InternalOneBotSegment::Typed(
-            InternalOneBotTypedSegment::Record {
+            InternalOneBotTypedSegment::Record(Record {
                 file: url.to_string(),
-            },
+                url:  url.to_string(),
+            }),
         ))
     }
 
@@ -282,9 +287,7 @@ impl TryFrom<Segment> for OneBotSegment {
                 },
             ))),
             "record" => Ok(Self(InternalOneBotSegment::Typed(
-                InternalOneBotTypedSegment::Record {
-                    file: transport::from_value(data)?,
-                },
+                InternalOneBotTypedSegment::Record(transport::from_value(data)?),
             ))),
             "video" => Ok(Self(InternalOneBotSegment::Typed(
                 InternalOneBotTypedSegment::Video {
@@ -339,7 +342,7 @@ impl TryFrom<OneBotSegment> for Segment {
                 InternalOneBotTypedSegment::Text { text } => Ok(Self::text(&text)),
                 InternalOneBotTypedSegment::Face { id } => Self::custom("face", id),
                 InternalOneBotTypedSegment::Image { file } => Ok(Self::image(file)),
-                InternalOneBotTypedSegment::Record { file } => Self::custom("file", file),
+                InternalOneBotTypedSegment::Record(record) => Self::custom("record", record),
                 InternalOneBotTypedSegment::Video { file } => Self::custom("video", file),
                 InternalOneBotTypedSegment::At { id, qq } => {
                     if qq.is_empty() {
