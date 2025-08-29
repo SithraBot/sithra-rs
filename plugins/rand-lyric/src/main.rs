@@ -46,3 +46,11 @@ async fn random(Payload(msg): Payload<Message<H>>) -> Option<SendMessage> {
     let line = lines.swap_remove(line_index);
     Some(msg!(f "{line}\n\n出自: {lyric_file}\n歌曲 ID: {index}"))
 }
+
+#[cfg(test)]
+#[test]
+fn all_lyric() {
+    for (n, lyric_file) in <Asset as Embed>::iter().enumerate() {
+        println!("{n}\t{lyric_file}");
+    }
+}
