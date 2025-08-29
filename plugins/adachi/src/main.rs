@@ -28,13 +28,17 @@ async fn main() {
 }
 
 async fn adachi(Payload(msg): Payload<Message<H>>) -> Option<SendMessage> {
-    matchopt!(msg.as_slice(), [H::Text(text)] if text.trim().eq("adachi"))?;
-    Some(msg!(rand_str()))
+    let number = matchopt!(msg.as_slice(), [H::Text(text)] => text.strip_prefix("adachi"))??;
+    Some(msg!(rand_str(number.trim().parse().ok())))
 }
 
-fn rand_str() -> String {
+fn rand_str(len: Option<usize>) -> String {
     let mut rng = fastrand::Rng::new();
-    let main_len = rng.usize(2..=4);
+    let main_len = if let Some(len) = len {
+        len
+    } else {
+        rng.usize(2..=4)
+    };
     let function_len = main_len - 1;
     let mut s = String::with_capacity(main_len * 3 + function_len * 3);
     let mut main_nths = Vec::with_capacity(main_len);
@@ -68,7 +72,7 @@ fn rand_str_test() {
     let file = std::fs::File::create("test.txt").unwrap();
     let mut writer = std::io::BufWriter::new(file);
     for _ in 0..100 {
-        let result = rand_str();
+        let result = rand_str(None);
         writeln!(writer, "{result}").unwrap();
     }
 }
