@@ -6,10 +6,15 @@ version = 4
 name = "adachi"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "fastrand",
  "log",
+ "reqwest",
+ "serde",
+ "sha2",
  "sithra-kit",
  "tokio",
+ "ulid",
 ]
 
 [[package]]

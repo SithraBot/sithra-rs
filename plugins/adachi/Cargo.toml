@@ -8,6 +8,14 @@ sithra-kit.workspace = true
 tokio.workspace = true
 log.workspace = true
 fastrand = "2.3.0"
+serde.workspace = true
+reqwest = { version = "0.12", default-features = false, features = [
+    "rustls-tls",
+    "json"
+] }
+ulid.workspace = true
+sha2 = "0.10.9"
+chrono = "0.4.41"
 
 [lints]
 workspace = true

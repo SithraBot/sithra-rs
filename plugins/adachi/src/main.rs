@@ -1,25 +1,43 @@
 use std::sync::LazyLock;
 
+use serde::Deserialize;
 use sithra_kit::{
     matchopt, plugin,
-    server::extract::payload::Payload,
+    server::extract::{payload::Payload, state::State},
     types::{
+        initialize::Initialize,
         message::{Message, SendMessage, common::CommonSegment as H},
         msg,
     },
 };
 
-const WORDS: &str = include_str!("../static/words2.txt");
+use crate::trans::{TransReq, post};
+
+mod trans;
+
+const WORDS: &str = include_str!("../static/words.txt");
 const FUNCTIONS: &str = include_str!("../static/functions.txt");
 const STARTS: &str = include_str!("../static/starts.txt");
 static WORDS_LEN: LazyLock<usize> = LazyLock::new(|| WORDS.lines().count());
 static FUNCTIONS_LEN: LazyLock<usize> = LazyLock::new(|| FUNCTIONS.lines().count());
 static STARTS_LEN: LazyLock<usize> = LazyLock::new(|| STARTS.lines().count());
 
+#[derive(Deserialize, Clone, Default)]
+struct Config {
+    youdao: Option<YoudaoAPI>,
+}
+
+#[derive(Deserialize, Clone)]
+struct YoudaoAPI {
+    app_key:    String,
+    app_secret: String,
+}
+
 #[tokio::main]
 async fn main() {
-    let (plugin, _) = plugin!();
-    let plugin = plugin.map(|r| r.route_typed(Message::on(adachi)));
+    let (plugin, Initialize { config, .. }) = plugin!(Option<Config>);
+    let config = config.unwrap_or_default();
+    let plugin = plugin.map(|r| r.route_typed(Message::on(adachi)).with_state(config));
     log::info!("Dice plugin started");
     tokio::select! {
         _ = plugin.run().join_all() => {}
@@ -27,9 +45,29 @@ async fn main() {
     }
 }
 
-async fn adachi(Payload(msg): Payload<Message<H>>) -> Option<SendMessage> {
+async fn adachi(
+    Payload(msg): Payload<Message<H>>,
+    State(state): State<Config>,
+) -> Option<SendMessage> {
     let number = matchopt!(msg.as_slice(), [H::Text(text)] => text.strip_prefix("adachi"))??;
-    Some(msg!(rand_str(number.trim().parse().ok())))
+    let randstr = rand_str(number.trim().parse().ok());
+    let randstr = if let Some(youdao) = state.youdao {
+        let req = TransReq::new(&youdao.app_key, &youdao.app_secret, &randstr, "auto", "en");
+        let result_en = post(req).await.ok()?;
+        let req = TransReq::new(
+            &youdao.app_key,
+            &youdao.app_secret,
+            &result_en.translation.join("\n"),
+            "en",
+            "zh-CHS",
+        );
+        let result_zh = post(req).await.ok()?;
+        let result = result_zh.translation.join("\n").trim().to_owned();
+        if result.is_empty() { randstr } else { result }
+    } else {
+        randstr
+    };
+    Some(msg!(randstr))
 }
 
 fn rand_str(len: Option<usize>) -> String {
