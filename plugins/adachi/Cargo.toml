@@ -16,6 +16,7 @@ reqwest = { version = "0.12", default-features = false, features = [
 ulid.workspace = true
 sha2 = "0.10.9"
 chrono = "0.4.41"
+simple-ai.workspace = true
 
 [lints]
 workspace = true

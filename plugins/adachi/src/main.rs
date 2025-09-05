@@ -1,9 +1,13 @@
 use std::sync::LazyLock;
 
 use serde::Deserialize;
+use simple_ai::OnceChat;
 use sithra_kit::{
     matchopt, plugin,
-    server::extract::{payload::Payload, state::State},
+    server::{
+        extract::context::{Clientful, Context},
+        server::Client,
+    },
     types::{
         initialize::Initialize,
         message::{Message, SendMessage, common::CommonSegment as H},
@@ -23,8 +27,11 @@ static FUNCTIONS_LEN: LazyLock<usize> = LazyLock::new(|| FUNCTIONS.lines().count
 static STARTS_LEN: LazyLock<usize> = LazyLock::new(|| STARTS.lines().count());
 
 #[derive(Deserialize, Clone, Default)]
+#[serde(default)]
 struct Config {
     youdao: Option<YoudaoAPI>,
+    #[serde(default)]
+    use_ai: bool,
 }
 
 #[derive(Deserialize, Clone)]
@@ -33,11 +40,23 @@ struct YoudaoAPI {
     app_secret: String,
 }
 
+#[derive(Clone)]
+struct AppState {
+    config: Config,
+    client: Client,
+}
+impl Clientful for AppState {
+    fn client(&self) -> &Client {
+        &self.client
+    }
+}
+
 #[tokio::main]
 async fn main() {
-    let (plugin, Initialize { config, .. }) = plugin!(Option<Config>);
-    let config = config.unwrap_or_default();
-    let plugin = plugin.map(|r| r.route_typed(Message::on(adachi)).with_state(config));
+    let (plugin, Initialize { config, .. }) = plugin!(Config);
+    let client = plugin.server.client();
+    let plugin =
+        plugin.map(|r| r.route_typed(Message::on(adachi)).with_state(AppState { config, client }));
     log::info!("Dice plugin started");
     tokio::select! {
         _ = plugin.run().join_all() => {}
@@ -45,13 +64,18 @@ async fn main() {
     }
 }
 
-async fn adachi(
-    Payload(msg): Payload<Message<H>>,
-    State(state): State<Config>,
-) -> Option<SendMessage> {
-    let number = matchopt!(msg.as_slice(), [H::Text(text)] => text.strip_prefix("adachi"))??;
+async fn adachi(ctx: Context<Message<H>, AppState>) -> Option<SendMessage> {
+    let number = matchopt!(ctx.as_slice(), [H::Text(text)] => text.strip_prefix("adachi"))??;
     let randstr = rand_str(number.trim().parse().ok());
-    let randstr = if let Some(youdao) = state.youdao {
+    if ctx.state.config.use_ai {
+        let data = OnceChat(format!(
+            "Please correct the grammar of the following sentence and output only the corrected \
+             sentence, without any additional explanations: {randstr}"
+        ));
+        let response = ctx.post(data).await.ok()?;
+        return Some(msg!(response));
+    }
+    let randstr = if let Some(youdao) = ctx.state.config.youdao {
         let req = TransReq::new(&youdao.app_key, &youdao.app_secret, &randstr, "auto", "en");
         let result_en = post(req).await.ok()?;
         let req = TransReq::new(

@@ -1,5 +1,5 @@
 use sithra_kit::{
-    plugin,
+    matchopt, plugin,
     server::extract::payload::Payload,
     types::{
         message::{Message, SendMessage, common::CommonSegment as H},
@@ -19,7 +19,7 @@ async fn main() {
 }
 
 async fn echo(Payload(msg): Payload<Message<H>>) -> Option<SendMessage> {
-    let text = msg.content.first()?.text_opt()?;
+    let text = matchopt!(msg.content.first()?, H::Text(t) => t)?;
     let text = text.strip_prefix("echo ")?.to_owned();
     log::info!("echo recv: {text}");
     let Message { mut content, .. } = msg;

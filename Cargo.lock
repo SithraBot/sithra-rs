@@ -12,6 +12,7 @@ dependencies = [
  "reqwest",
  "serde",
  "sha2",
+ "simple-ai",
  "sithra-kit",
  "tokio",
  "ulid",
@@ -2660,6 +2661,7 @@ name = "simple-ai"
 version = "0.1.0"
 dependencies = [
  "ahash",
+ "anyhow",
  "log",
  "minimax",
  "nom",

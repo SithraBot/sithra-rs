@@ -38,6 +38,7 @@ sithra-kit-macros = { path = "crates/kit-macros" }
 sithra = { path = "crates/sithra" }
 sithra-adapter-onebot = { path = "adapters/onebot" }
 minimax = { path = "plugins/minimax" }
+simple-ai = { path = "plugins/simple-ai"}
 
 [workspace.lints.clippy]
 nursery = { level = "warn", priority = -1 }

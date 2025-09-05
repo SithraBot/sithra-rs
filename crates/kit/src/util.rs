@@ -26,7 +26,7 @@
 ///
 /// ```
 /// use sithra_kit::matchopt;
-/// 
+///
 /// let x = Some(5);
 /// let y = matchopt!(x, Some(val) => val);
 /// assert_eq!(y, Some(5));
@@ -40,7 +40,7 @@
 ///
 /// ```
 /// use sithra_kit::matchopt;
-/// 
+///
 /// let num = Some(10);
 /// let even_num = matchopt!(num, Some(val) if val % 2 == 0 => val);
 /// assert_eq!(even_num, Some(10));
@@ -54,7 +54,7 @@
 ///
 /// ```
 /// use sithra_kit::matchopt;
-/// 
+///
 /// let result: Result<i32, &str> = Ok(42);
 /// let is_ok = matchopt!(result, Ok(_));
 /// assert_eq!(is_ok, Some(()));
@@ -68,7 +68,7 @@
 ///
 /// ```
 /// use sithra_kit::matchopt;
-/// 
+///
 /// let data = Some(vec![1, 2, 3]);
 /// let has_elements = matchopt!(data, Some(v) if !v.is_empty());
 /// assert_eq!(has_elements, Some(()));

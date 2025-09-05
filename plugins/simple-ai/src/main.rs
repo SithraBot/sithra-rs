@@ -6,7 +6,7 @@ use nom::{IResult, Parser, branch::alt, bytes::complete::tag};
 use rig::{
     agent::Agent,
     client::CompletionClient,
-    completion::Chat,
+    completion::{Chat, Prompt},
     providers::openrouter::{self, CompletionModel},
 };
 use serde::Deserialize;
@@ -15,6 +15,7 @@ use sithra_kit::{
     plugin,
     server::{
         extract::{context::Clientful, payload::Payload, state::State},
+        on,
         server::Client,
     },
     transport::channel::Channel,
@@ -105,12 +106,24 @@ async fn main() {
         use_voice:   config.use_voice,
         client:      plugin.server.client(),
     };
-    let plugin = plugin.map(|r| r.route_typed(Message::on(ai)).with_state(state));
+    let plugin = plugin.map(|r| {
+        r.route_typed(Message::on(ai))
+            .route("/simple-ai/once_chat_api", on(api))
+            .with_state(state)
+    });
     log::info!("Simple AI started");
     tokio::select! {
         _ = plugin.run().join_all() => {}
         _ = tokio::signal::ctrl_c() => {}
     }
+}
+
+async fn api(
+    Payload(msg): Payload<String>,
+    State(AppState { agent, .. }): State<AppState>,
+) -> anyhow::Result<Payload<String>> {
+    let response = agent.prompt(msg).await?;
+    Ok(Payload(response))
 }
 
 async fn ai(

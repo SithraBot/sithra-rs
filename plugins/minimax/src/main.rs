@@ -19,18 +19,18 @@ use sithra_kit::{
 #[derive(Deserialize, Clone)]
 struct Config {
     #[serde(rename = "api-key")]
-    api_key: String,
+    api_key:       String,
     #[serde(default = "default_speed")]
-    speed:   f32,
+    speed:         f32,
     #[serde(default = "default_pitch")]
-    pitch:   i32,
+    pitch:         i32,
     #[serde(default = "default_vol")]
-    vol:     u32,
-    intensity: Option<i32>,
-    timbre: Option<i32>,
+    vol:           u32,
+    intensity:     Option<i32>,
+    timbre:        Option<i32>,
     #[serde(rename = "sound-effects")]
     sound_effects: Option<String>,
-    voice:   Vec<Voice>,
+    voice:         Vec<Voice>,
 }
 
 const fn default_speed() -> f32 {
@@ -82,7 +82,8 @@ async fn main() {
 }
 
 fn build_request(config: &Config, content: &str) -> serde_json::Value {
-    let voice_map = config.voice
+    let voice_map = config
+        .voice
         .iter()
         .map(|voice| json!({"voice_id": voice.id, "weight": voice.weight}))
         .collect::<Vec<_>>();
