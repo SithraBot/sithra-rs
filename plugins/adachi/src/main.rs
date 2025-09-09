@@ -57,7 +57,7 @@ async fn main() {
     let client = plugin.server.client();
     let plugin =
         plugin.map(|r| r.route_typed(Message::on(adachi)).with_state(AppState { config, client }));
-    log::info!("Dice plugin started");
+    log::info!("Adachi plugin started");
     tokio::select! {
         _ = plugin.run().join_all() => {}
         _ = tokio::signal::ctrl_c() => {}
