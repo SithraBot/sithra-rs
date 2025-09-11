@@ -21,6 +21,10 @@ pub fn framed(peer: Peer) -> Framed<Peer, DataPackCodec> {
     Framed::new(peer, DataPackCodec::new())
 }
 
+pub fn framed_ref(peer: &mut Peer) -> Framed<&mut Peer, DataPackCodec> {
+    Framed::new(peer, DataPackCodec::new())
+}
+
 /// Connects to a child process and returns a framed transport.
 ///
 /// # Errors

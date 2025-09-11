@@ -132,7 +132,7 @@ impl Plugin {
     ///
     /// # Panics
     /// Panics if the initialization response cannot be sent.
-    pub fn ok(&mut self) {
+    fn ok(&mut self) {
         self.server
             .client()
             .send(
@@ -149,13 +149,14 @@ impl Plugin {
     /// # Panics
     /// Panics if the initialization response cannot be sent.
     pub async fn err(&mut self, err: impl Into<PluginInitError>) -> ! {
-        self.server
-            .client()
+        let mut framed = crate::transport::util::framed_ref(&mut self.peer);
+        framed
             .send(
-                RequestDataPack::default()
+                DataPack::builder()
                     .path(Initialize::<()>::path())
-                    .payload(&InitializeResult::Err(err.into())),
+                    .build_with_payload(&InitializeResult::Err(err.into())),
             )
+            .await
             .unwrap_or_else(|_| panic!("Failed to send initialization response: [{}]", self.name));
         self.initialize_done = true;
         tokio::signal::ctrl_c().await.ok();
