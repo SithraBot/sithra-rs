@@ -12,7 +12,7 @@ use rig::{
 use serde::Deserialize;
 use sithra_adapter_onebot::message::OneBotSegment as QH;
 use sithra_kit::{
-    plugin,
+    matchopt, plugin,
     server::{
         extract::{context::Clientful, payload::Payload, state::State},
         on,
@@ -44,6 +44,8 @@ struct Config {
     max_history: usize,
     #[serde(default = "default_use_voice", rename = "use-voice")]
     use_voice:   bool,
+    #[serde(default = "default_use_image", rename = "use-image")]
+    use_image:   bool,
 }
 fn default_base_url() -> String {
     "https://openrouter.ai/api/v1".to_owned()
@@ -60,6 +62,9 @@ const fn default_max_history() -> usize {
 const fn default_use_voice() -> bool {
     false
 }
+const fn default_use_image() -> bool {
+    false
+}
 
 #[derive(Clone)]
 struct AppState {
@@ -67,6 +72,7 @@ struct AppState {
     history:     Arc<Mutex<AHashMap<String, VecDeque<rig::message::Message>>>>,
     max_history: usize,
     use_voice:   bool,
+    use_image:   bool,
     client:      Client,
 }
 impl Clientful for AppState {
@@ -104,6 +110,7 @@ async fn main() {
         history:     Arc::new(Mutex::new(AHashMap::new())),
         max_history: config.max_history,
         use_voice:   config.use_voice,
+        use_image:   config.use_image,
         client:      plugin.server.client(),
     };
     let plugin = plugin.map(|r| {
@@ -134,13 +141,12 @@ async fn ai(
         history,
         max_history,
         use_voice,
+        use_image,
         client,
     }): State<AppState>,
 ) -> Option<SendMessage> {
     // log::debug!("{:?}", msg.content);
-    let msg = cmd(&msg.content, &channel)?.replace('[', "【").replace(']', "】");
-    let msg = format!("[{}]: {msg}", channel.name);
-    log::info!("Received message: {msg}");
+    let (msg, msg_mem) = cmd(&msg.content, &channel, use_image)?;
     let key = if let Some(id) = channel.parent_id {
         id
     } else if let Some(id) = channel.self_id {
@@ -156,16 +162,24 @@ async fn ai(
         .iter()
         .map(Clone::clone)
         .collect();
-    let response = agent.chat(&msg, current_history).await;
+    let response = agent.chat(msg, current_history).await;
     let response = match response {
         Ok(res) => res.trim().to_owned(),
         Err(err) => {
             log::error!("{err}");
-            return Some(msg!("[API错误]"));
+            return match err {
+                rig::completion::PromptError::CompletionError(
+                    rig::completion::CompletionError::ProviderError(err),
+                ) => Some(msg!(f "[API错误:{err}]")),
+                // rig::completion::PromptError::ToolError(tool_set_error) => todo!(),
+                // rig::completion::PromptError::MaxDepthError { max_depth, chat_history, prompt }
+                // => todo!(),
+                _ => Some(msg!("[API错误]")),
+            };
         }
     };
     history.lock().await.entry(key.clone()).and_modify(|h| {
-        h.push_back(rig::message::Message::user(msg));
+        h.push_back(msg_mem);
         h.push_back(rig::message::Message::assistant(&response));
     });
     shift_history(history.lock().await.entry(key).or_default(), max_history);
@@ -196,21 +210,40 @@ fn tag_ask(input: &str) -> IResult<&str, &str> {
     alt((tag("?"), tag("!"), tag("？"), tag("！"))).parse(input)
 }
 
-fn cmd(msg: &[H], channel: &Channel) -> Option<String> {
-    let msg = match msg {
-        [H::At(id), ..] if channel.self_id.as_ref().is_some_and(|sid| sid.eq(id)) => text_only(msg),
-        [H::Text(f)] => {
-            let res: IResult<&str, _> = (tag_ask, tag_ask).parse(f);
+fn cmd(
+    raw_msg: &[H],
+    channel: &Channel,
+    use_img: bool,
+) -> Option<(rig::message::Message, rig::message::Message)> {
+    let msg = match raw_msg {
+        [H::At(id), ..] if channel.self_id.as_ref().is_some_and(|sid| sid.eq(id)) => {
+            text_only(raw_msg)
+        }
+        msg => {
+            let text = text_only(msg)?;
+            let res: IResult<&str, _> = (tag_ask, tag_ask).parse(&text);
             let res = res.ok()?;
             Some(res.0.to_owned())
         }
-        _ => None,
     }?;
     let msg = msg.trim();
     if msg.is_empty() {
         return None;
     }
-    Some(msg.to_owned())
+    let msg = msg.replace('[', "【").replace(']', "】");
+    let msg = format!("[{}]: {msg}", channel.name);
+    Some(if use_img && let Some(mut imgs) = image_only(raw_msg) {
+        imgs.push(rig::message::UserContent::text(&msg));
+        (
+            rig::message::Message::User { content: imgs },
+            rig::message::Message::user(msg),
+        )
+    } else {
+        (
+            rig::message::Message::user(&msg),
+            rig::message::Message::user(msg),
+        )
+    })
 }
 
 #[cfg(test)]
@@ -219,11 +252,38 @@ fn test_cmd() {
     use sithra_kit::types::seg;
     let channel = Channel::default();
     let msg = seg!(H[text: "?!AAABBB"]);
-    let v = cmd(&msg, &channel);
-    assert_eq!(v, Some("AAABBB".to_owned()));
+    let v = cmd(&msg, &channel, false);
+    assert_eq!(
+        v,
+        Some((
+            rig::message::Message::User {
+                content: rig::OneOrMany::one(rig::message::UserContent::text("[]: AAABBB")),
+            },
+            rig::message::Message::User {
+                content: rig::OneOrMany::one(rig::message::UserContent::text("[]: AAABBB")),
+            }
+        ))
+    );
     let msg = seg!(H[text: "?!"]);
-    let v = cmd(&msg, &channel);
+    let v = cmd(&msg, &channel, false);
     assert_eq!(v, None);
+    let msg = seg!(H[text: "?! 嘻嘻", img: "url_foo"]);
+    let v = cmd(&msg, &channel, true);
+    assert_eq!(
+        v,
+        Some((
+            rig::message::Message::User {
+                content: rig::OneOrMany::many(vec![
+                    rig::message::UserContent::image("url_foo", None, None, None),
+                    rig::message::UserContent::text("[]: 嘻嘻"),
+                ])
+                .unwrap(),
+            },
+            rig::message::Message::User {
+                content: rig::OneOrMany::one(rig::message::UserContent::text("[]: 嘻嘻")),
+            }
+        ))
+    );
 }
 
 fn shift_history(history: &mut VecDeque<rig::message::Message>, max_history: usize) {
@@ -248,4 +308,12 @@ fn text_only(msg: &[H]) -> Option<String> {
     } else {
         Some(raw)
     }
+}
+
+fn image_only(msg: &[H]) -> Option<rig::OneOrMany<rig::message::UserContent>> {
+    let raw = msg.iter().filter_map(
+        |h| matchopt!(h, H::Image(url) => rig::message::UserContent::image(url, None, None, None)),
+    );
+    let result = rig::OneOrMany::many(raw);
+    result.ok()
 }
