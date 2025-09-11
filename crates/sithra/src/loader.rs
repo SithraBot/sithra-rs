@@ -211,12 +211,13 @@ impl Loader {
     }
 
     async fn next_init_pack(read: &mut FramedRead<Reader, DataPackCodec>) -> InitializeResult {
-        while let Some(res) = read.next().await {
-            if let Ok(res) = res {
-                let matched = res.path.as_ref().map(|v| v == Initialize::<()>::path());
-                if matched == Some(true) {
-                    return res.payload().map_err(PluginInitError::InitPackDeserializeError)?;
-                }
+        while let Some(Ok(res)) = read.next().await {
+            let Some(res) = map_log(res) else {
+                continue;
+            };
+            let matched = res.path.as_ref().map(|v| v == Initialize::<()>::path());
+            if matched == Some(true) {
+                return res.payload().map_err(PluginInitError::InitPackDeserializeError)?;
             }
         }
         Err(PluginInitError::ConnectionClosed)
